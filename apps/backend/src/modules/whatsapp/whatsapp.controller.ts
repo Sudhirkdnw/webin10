@@ -238,4 +238,27 @@ export class WhatsAppController {
   async getPlatformStats() {
     return this.whatsAppService.getPlatformStats();
   }
+
+  @Get('admin/inbox/conversations')
+  @ApiOperation({ summary: 'Super Admin: Get list of active WhatsApp chat threads' })
+  async getInboxConversations(
+    @Query('search') search?: string,
+    @Query('tenantId') tenantId?: string,
+  ) {
+    return this.whatsAppService.getConversationsList({ search, tenantId });
+  }
+
+  @Get('admin/inbox/conversations/:phone')
+  @ApiOperation({ summary: 'Super Admin: Get full chronological chat history with a phone number' })
+  async getConversationMessages(@Param('phone') phone: string) {
+    return this.whatsAppService.getConversationMessages(phone);
+  }
+
+  @Post('admin/inbox/reply')
+  @ApiOperation({ summary: 'Super Admin: Send real-time WhatsApp reply to a customer' })
+  async sendInboxReply(
+    @Body() body: { phone: string; message: string; tenantId?: string },
+  ) {
+    return this.whatsAppService.sendLiveReply(body);
+  }
 }

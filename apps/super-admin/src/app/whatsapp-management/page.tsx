@@ -24,12 +24,17 @@ import {
   ArrowUpRight,
   TrendingUp,
   Trash2,
+  ExternalLink,
+  Eye,
+  CheckCheck,
+  Phone,
+  Smile,
 } from 'lucide-react';
 import { getApiBaseUrl, apiRequest } from '@/lib/api';
 
 export default function SuperAdminWhatsAppManagement() {
   const API_BASE = getApiBaseUrl();
-  const [activeTab, setActiveTab] = useState<'tenants' | 'automations' | 'broadcast' | 'templates' | 'logs'>('tenants');
+  const [activeTab, setActiveTab] = useState<'tenants' | 'automations' | 'broadcast' | 'templates' | 'logs' | 'inbox'>('tenants');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({
     totalTenants: 0,
@@ -41,6 +46,19 @@ export default function SuperAdminWhatsAppManagement() {
   const [tenants, setTenants] = useState<any[]>([]);
   const [automations, setAutomations] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
+
+  // Live Inbox State
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [inboxSearch, setInboxSearch] = useState('');
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [loadingChat, setLoadingChat] = useState(false);
+  const [loadingInbox, setLoadingInbox] = useState(false);
+
+  // Template Preview Modal
+  const [previewTemplate, setPreviewTemplate] = useState<any>(null);
 
   // Logs State
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
@@ -65,6 +83,85 @@ export default function SuperAdminWhatsAppManagement() {
     loadAllData();
     loadAdminLogs();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'inbox') {
+      loadConversations();
+      const interval = setInterval(() => {
+        loadConversations();
+        if (selectedConversation?.fullPhone) {
+          fetch(`${API_BASE}/whatsapp/admin/inbox/conversations/${encodeURIComponent(selectedConversation.fullPhone)}`)
+            .then((r) => r.json())
+            .then((msgs) => {
+              if (Array.isArray(msgs)) setChatMessages(msgs);
+            })
+            .catch(() => {});
+        }
+      }, 6000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, selectedConversation?.fullPhone]);
+
+  async function loadConversations(search = inboxSearch) {
+    setLoadingInbox(true);
+    try {
+      const res = await fetch(`${API_BASE}/whatsapp/admin/inbox/conversations?search=${encodeURIComponent(search)}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setConversations(data);
+        if (data.length > 0 && !selectedConversation) {
+          selectChat(data[0]);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load conversations:', e);
+    } finally {
+      setLoadingInbox(false);
+    }
+  }
+
+  async function selectChat(conv: any) {
+    setSelectedConversation(conv);
+    setLoadingChat(true);
+    try {
+      const res = await fetch(`${API_BASE}/whatsapp/admin/inbox/conversations/${encodeURIComponent(conv.fullPhone)}`);
+      const msgs = await res.json();
+      setChatMessages(Array.isArray(msgs) ? msgs : []);
+    } catch (e) {
+      console.error('Failed to load chat messages:', e);
+    } finally {
+      setLoadingChat(false);
+    }
+  }
+
+  async function handleSendReply(e: React.FormEvent) {
+    e.preventDefault();
+    if (!replyText.trim() || !selectedConversation) return;
+
+    setSendingReply(true);
+    try {
+      const res = await apiRequest('/whatsapp/admin/inbox/reply', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone: selectedConversation.fullPhone,
+          message: replyText.trim(),
+          tenantId: selectedConversation.tenantId,
+        }),
+      });
+
+      if (res.success) {
+        setReplyText('');
+        await selectChat(selectedConversation);
+        loadConversations();
+      } else {
+        alert(res.error || 'Failed to send reply');
+      }
+    } catch (e: any) {
+      alert(`Error sending reply: ${e.message}`);
+    } finally {
+      setSendingReply(false);
+    }
+  }
 
   async function loadAdminLogs(status = logStatusFilter, search = logSearchQuery) {
     setLoadingLogs(true);
@@ -373,6 +470,7 @@ export default function SuperAdminWhatsAppManagement() {
         {/* Tab Navigation */}
         <div className="flex border-b border-slate-200 space-x-2 sm:space-x-4 overflow-x-auto">
           {[
+            { id: 'inbox', label: 'Live Chat & WhatsApp Inbox', icon: MessageSquare, badge: 'LIVE', count: conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0) },
             { id: 'tenants', label: 'Business Access & Credits', icon: Users, count: tenants.length },
             { id: 'automations', label: 'Platform Automations (To Businesses)', icon: Zap, count: automations.length },
             { id: 'broadcast', label: 'Broadcast to All Businesses', icon: Send },
@@ -393,7 +491,12 @@ export default function SuperAdminWhatsAppManagement() {
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
-                {tab.count !== undefined && (
+                {(tab as any).badge && (
+                  <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-emerald-500 text-white rounded-full animate-pulse">
+                    {(tab as any).badge}
+                  </span>
+                )}
+                {tab.count !== undefined && tab.count > 0 && (
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                       isActive ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-600'
@@ -406,6 +509,210 @@ export default function SuperAdminWhatsAppManagement() {
             );
           })}
         </div>
+
+        {/* TAB INBOX: WHATSAPP WEB STYLE LIVE CHAT */}
+        {activeTab === 'inbox' && (
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs flex flex-col md:flex-row h-[720px]">
+            {/* LEFT COLUMN: CONVERSATION LIST */}
+            <div className="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col h-full bg-slate-50/50">
+              {/* Search & Header */}
+              <div className="p-3.5 border-b border-slate-200 bg-white">
+                <div className="flex items-center justify-between mb-2.5">
+                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Live Customer Chats</span>
+                  </h3>
+                  <button
+                    onClick={() => loadConversations()}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                    title="Refresh Chats"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingInbox ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search chats by name or phone..."
+                    value={inboxSearch}
+                    onChange={(e) => {
+                      setInboxSearch(e.target.value);
+                      loadConversations(e.target.value);
+                    }}
+                    className="w-full bg-slate-100 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-indigo-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Chat Thread List */}
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                {loadingInbox && conversations.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400">Loading active conversations...</div>
+                ) : conversations.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400">
+                    <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="font-medium text-slate-600">No active conversations</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Incoming WhatsApp replies and outbound messages will appear here.</p>
+                  </div>
+                ) : (
+                  conversations.map((conv) => {
+                    const isSelected = selectedConversation?.fullPhone === conv.fullPhone;
+                    return (
+                      <div
+                        key={conv.phoneKey}
+                        onClick={() => selectChat(conv)}
+                        className={`p-3.5 cursor-pointer transition-colors flex items-start gap-3 ${
+                          isSelected ? 'bg-indigo-50/80 border-r-4 border-indigo-600' : 'hover:bg-slate-100/70'
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                          {conv.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <h4 className="font-bold text-slate-900 text-xs truncate">{conv.name}</h4>
+                            <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                              {new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-mono text-slate-500 mb-1">{conv.fullPhone}</p>
+                          <p className="text-xs text-slate-600 truncate flex items-center gap-1">
+                            {conv.direction === 'OUTBOUND' && (
+                              <CheckCheck className="w-3 h-3 text-indigo-500 shrink-0" />
+                            )}
+                            <span className="truncate">{conv.lastMessage}</span>
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
+                              {conv.tenantName}
+                            </span>
+                            {conv.unreadCount > 0 && (
+                              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-500 text-white">
+                                {conv.unreadCount}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: ACTIVE CHAT THREAD (WHATSAPP WEB STYLE) */}
+            {selectedConversation ? (
+              <div className="flex-1 flex flex-col h-full bg-[#efeae2]">
+                {/* Chat Top Header */}
+                <div className="p-3.5 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
+                      {selectedConversation.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{selectedConversation.name}</h4>
+                      <p className="text-[11px] font-mono text-slate-500 flex items-center gap-2">
+                        <span>{selectedConversation.fullPhone}</span>
+                        <span>•</span>
+                        <span className="font-semibold text-emerald-600">WhatsApp Verified Active</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
+                      Workspace: {selectedConversation.tenantName}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Messages Body (Doodle / Wallpaper area) */}
+                <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[radial-gradient(#d1d5db_1px,transparent_1px)] [background-size:16px_16px]">
+                  {loadingChat ? (
+                    <div className="p-12 text-center text-xs text-slate-500">Loading conversation history...</div>
+                  ) : chatMessages.length === 0 ? (
+                    <div className="p-12 text-center text-xs text-slate-400">
+                      Send a message below to start chatting with {selectedConversation.name}.
+                    </div>
+                  ) : (
+                    chatMessages.map((msg) => {
+                      const isOutbound = msg.direction === 'OUTBOUND';
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-md p-3 rounded-2xl text-xs shadow-xs relative leading-relaxed ${
+                              isOutbound
+                                ? 'bg-[#d9fdd3] text-slate-900 rounded-tr-xs'
+                                : 'bg-white text-slate-900 rounded-tl-xs'
+                            }`}
+                          >
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            <div className="flex items-center justify-end gap-1 text-[10px] text-slate-500 mt-1">
+                              <span>
+                                {new Date(msg.sentAt || msg.createdAt).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                              {isOutbound && (
+                                <CheckCheck
+                                  className={`w-3.5 h-3.5 ${
+                                    msg.status === 'READ'
+                                      ? 'text-blue-500'
+                                      : msg.status === 'DELIVERED'
+                                      ? 'text-slate-600'
+                                      : 'text-slate-400'
+                                  }`}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Reply Composer Bar */}
+                <form
+                  onSubmit={handleSendReply}
+                  className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
+                >
+                  <input
+                    type="text"
+                    required
+                    placeholder={`Type a WhatsApp message to ${selectedConversation.name}...`}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sendingReply || !replyText.trim()}
+                    className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                  >
+                    {sendingReply ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                    <span>Send</span>
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-400 p-8">
+                <MessageSquare className="w-12 h-12 text-slate-300 mb-2" />
+                <p className="font-bold text-slate-600 text-sm">Select a Conversation</p>
+                <p className="text-xs text-slate-400 mt-1">Choose a contact on the left to start viewing and sending live messages.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* TAB 1: BUSINESS ACCESS & CREDITS CONTROL */}
         {activeTab === 'tenants' && (
@@ -663,15 +970,27 @@ export default function SuperAdminWhatsAppManagement() {
                 <p className="text-xs text-slate-500 mt-0.5">Approved Meta Cloud API templates available across Webin10</p>
               </div>
 
-              <button
-                onClick={handleSyncTemplates}
-                disabled={syncingTemplates}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors disabled:opacity-50"
-                title="Fetch and sync newly created templates from Meta WhatsApp Manager"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${syncingTemplates ? 'animate-spin' : ''}`} />
-                <span>{syncingTemplates ? 'Syncing with Meta...' : 'Sync Templates from Meta'}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://business.facebook.com/wa/manage/message-templates/?waba_id=1544300757746536"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-xs transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>+ Create on Meta</span>
+                </a>
+
+                <button
+                  onClick={handleSyncTemplates}
+                  disabled={syncingTemplates}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                  title="Fetch and sync newly created templates from Meta WhatsApp Manager"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingTemplates ? 'animate-spin' : ''}`} />
+                  <span>{syncingTemplates ? 'Syncing with Meta...' : 'Sync Templates from Meta'}</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -683,6 +1002,7 @@ export default function SuperAdminWhatsAppManagement() {
                     <th className="py-3 px-4">Category</th>
                     <th className="py-3 px-4">Message Body Preview</th>
                     <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-center">Preview</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -700,6 +1020,15 @@ export default function SuperAdminWhatsAppManagement() {
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                           {tmpl.status}
                         </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() => setPreviewTemplate(tmpl)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                        >
+                          <Eye className="w-3 h-3 text-emerald-600" />
+                          <span>WhatsApp Preview</span>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -900,6 +1229,116 @@ export default function SuperAdminWhatsAppManagement() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+        {/* WHATSAPP REALISTIC MOBILE BUBBLE PREVIEW MODAL */}
+        {previewTemplate && (
+          <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="relative max-w-[360px] w-full rounded-[40px] border-[8px] border-slate-900 bg-[#efeae2] shadow-2xl overflow-hidden flex flex-col h-[640px]">
+              {/* Phone Camera Notch & Speaker */}
+              <div className="bg-slate-900 h-6 w-32 mx-auto rounded-b-2xl flex items-center justify-center gap-2 mb-1 z-20">
+                <div className="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+                <div className="w-10 h-1 rounded-full bg-slate-700"></div>
+              </div>
+
+              {/* Close Button top-right */}
+              <button
+                onClick={() => setPreviewTemplate(null)}
+                className="absolute top-3 right-4 z-30 w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center text-sm font-bold shadow-md hover:bg-slate-700"
+              >
+                &times;
+              </button>
+
+              {/* WhatsApp Green Top Header */}
+              <div className="bg-[#008069] text-white px-3 py-2.5 flex items-center justify-between shadow-sm z-10">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-white/20 border border-white/40 flex items-center justify-center font-bold text-xs text-white">
+                    W10
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs flex items-center gap-1">
+                      <span>Webin10</span>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 fill-emerald-300" />
+                    </h4>
+                    <span className="text-[10px] text-emerald-100 opacity-90 block -mt-0.5">Official Business Account</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-white/90">
+                  <Phone className="w-4 h-4" />
+                </div>
+              </div>
+
+              {/* Chat Canvas Area */}
+              <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:14px_14px] flex flex-col justify-end">
+                {/* Date Chip */}
+                <div className="text-center my-1">
+                  <span className="px-2.5 py-0.5 rounded-md bg-white/80 shadow-xs text-[10px] text-slate-600 font-semibold uppercase tracking-wider">
+                    Today
+                  </span>
+                </div>
+
+                {/* WhatsApp Message Bubble */}
+                <div className="flex flex-col items-end">
+                  <div className="bg-[#e7fedb] border border-emerald-100 text-slate-900 rounded-2xl rounded-tr-xs p-3.5 shadow-sm text-xs leading-relaxed max-w-[92%] relative">
+                    {/* Header if image/text */}
+                    {previewTemplate.headerType !== 'NONE' && (
+                      <div className="font-bold text-slate-900 text-xs mb-1.5 pb-1 border-b border-emerald-200/50">
+                        {previewTemplate.name}
+                      </div>
+                    )}
+
+                    {/* Body Text with highlighted variables */}
+                    <div className="whitespace-pre-wrap text-slate-800">
+                      {previewTemplate.bodyText
+                        .replace('{{1}}', 'Rahul')
+                        .replace('{{2}}', 'Webin10')
+                        .replace('{{3}}', 'https://webin10.in')
+                        .replace('{{4}}', '₹500')}
+                    </div>
+
+                    {/* Footer */}
+                    {previewTemplate.footerText && (
+                      <p className="text-[10px] text-slate-500 mt-2 border-t border-emerald-200/40 pt-1">
+                        {previewTemplate.footerText}
+                      </p>
+                    )}
+
+                    {/* Timestamp + Blue Double Tick */}
+                    <div className="flex items-center justify-end gap-1 text-[10px] text-slate-500 mt-1">
+                      <span>12:00 PM</span>
+                      <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+                    </div>
+                  </div>
+
+                  {/* WhatsApp Quick Action Buttons attached below bubble */}
+                  <div className="w-[92%] flex flex-col gap-1 mt-1">
+                    <button
+                      type="button"
+                      className="w-full py-2 bg-white hover:bg-slate-50 text-indigo-600 font-bold text-xs rounded-xl shadow-xs border border-slate-200/80 flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Claim Exclusive Offer</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs border border-slate-200/80 flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Phone className="w-3 h-3 text-emerald-600" />
+                      <span>Call Support</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Phone Bar */}
+              <div className="bg-white p-2.5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-400">
+                <span className="text-[10px] font-medium text-slate-500">Live WhatsApp Cloud Preview</span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 uppercase">
+                  {previewTemplate.status}
+                </span>
+              </div>
             </div>
           </div>
         )}

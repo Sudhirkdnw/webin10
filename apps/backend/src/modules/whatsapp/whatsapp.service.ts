@@ -716,26 +716,45 @@ export class WhatsAppService {
             if (value?.messages) {
               for (const msg of value.messages) {
                 this.logger.log(`Incoming WhatsApp from ${msg.from}: ${msg.text?.body}`);
-                // Save inbound message
-                const senderPhone = `+${msg.from}`;
+                const rawSender = msg.from;
+                const cleanLast10 = rawSender.slice(-10);
+                const senderPhone = rawSender.startsWith('+') ? rawSender : `+${rawSender}`;
+
+                // Try finding customer or business tenant profile
                 const customer = await this.prisma.customer.findFirst({
-                  where: { phone: { contains: msg.from.slice(-10) } },
+                  where: { phone: { contains: cleanLast10 } },
+                  include: { tenant: true },
                 });
 
-                if (customer) {
-                  await this.prisma.whatsAppMessageLog.create({
-                    data: {
-                      tenantId: customer.tenantId,
-                      customerId: customer.id,
-                      recipientPhone: senderPhone,
-                      recipientName: `${customer.firstName} ${customer.lastName || ''}`.trim(),
-                      direction: 'INBOUND',
-                      status: 'DELIVERED',
-                      content: msg.text?.body || '[Media]',
-                      metaMessageId: msg.id,
-                    },
-                  });
-                }
+                const tenant = !customer
+                  ? await this.prisma.tenant.findFirst({
+                      where: { profile: { phone: { contains: cleanLast10 } } },
+                      include: { profile: true },
+                    })
+                  : null;
+
+                const recipientName = customer
+                  ? `${customer.firstName} ${customer.lastName || ''}`.trim()
+                  : tenant
+                  ? tenant.name
+                  : senderPhone;
+
+                const tenantId = customer?.tenantId || tenant?.id || null;
+
+                await this.prisma.whatsAppMessageLog.create({
+                  data: {
+                    tenantId,
+                    customerId: customer?.id || null,
+                    recipientPhone: senderPhone,
+                    recipientName,
+                    direction: 'INBOUND',
+                    status: 'DELIVERED',
+                    content: msg.text?.body || (msg.type ? `[${msg.type.toUpperCase()}]` : '[Message]'),
+                    metaMessageId: msg.id,
+                    sentAt: new Date(Number(msg.timestamp) * 1000 || Date.now()),
+                    deliveredAt: new Date(),
+                  },
+                });
               }
             }
           }
@@ -1112,5 +1131,171 @@ export class WhatsAppService {
       deliverySuccessRate: totalLogs > 0 ? `${Math.round((deliveredLogs / totalLogs) * 100)}%` : '100%',
       totalCreditsInCirculation: totalCredits._sum.creditsBalance ? Number(totalCredits._sum.creditsBalance) : 0,
     };
+  }
+
+  /**
+   * INBOX: Get Unique Conversations List
+   */
+  async getConversationsList(query?: { search?: string; tenantId?: string }) {
+    const where: any = {};
+    if (query?.tenantId) {
+      where.tenantId = query.tenantId;
+    }
+
+    const logs = await this.prisma.whatsAppMessageLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+      include: {
+        tenant: { select: { id: true, name: true } },
+        customer: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    const conversationMap = new Map<string, any>();
+
+    for (const log of logs) {
+      const key = (log.recipientPhone || '').replace(/[^0-9]/g, '').slice(-10);
+      if (!key) continue;
+
+      if (!conversationMap.has(key)) {
+        conversationMap.set(key, {
+          phoneKey: key,
+          fullPhone: log.recipientPhone,
+          name: log.recipientName || log.recipientPhone,
+          tenantName: log.tenant?.name || 'Direct / Platform',
+          tenantId: log.tenantId,
+          customerId: log.customerId,
+          lastMessage: log.content,
+          lastMessageTime: log.sentAt || log.createdAt,
+          direction: log.direction,
+          status: log.status,
+          unreadCount: log.direction === 'INBOUND' && !log.readAt ? 1 : 0,
+        });
+      } else {
+        const conv = conversationMap.get(key);
+        if (log.direction === 'INBOUND' && !log.readAt) {
+          conv.unreadCount += 1;
+        }
+      }
+    }
+
+    let list = Array.from(conversationMap.values());
+    if (query?.search) {
+      const q = query.search.toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.fullPhone.toLowerCase().includes(q) ||
+          c.lastMessage.toLowerCase().includes(q),
+      );
+    }
+
+    return list;
+  }
+
+  /**
+   * INBOX: Get Messages for a Phone Conversation
+   */
+  async getConversationMessages(phone: string) {
+    const cleanLast10 = phone.replace(/[^0-9]/g, '').slice(-10);
+
+    const messages = await this.prisma.whatsAppMessageLog.findMany({
+      where: {
+        recipientPhone: { contains: cleanLast10 },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 200,
+    });
+
+    // Mark inbound as read
+    await this.prisma.whatsAppMessageLog.updateMany({
+      where: {
+        recipientPhone: { contains: cleanLast10 },
+        direction: 'INBOUND',
+        readAt: null,
+      },
+      data: {
+        readAt: new Date(),
+        status: 'READ',
+      },
+    });
+
+    return messages;
+  }
+
+  /**
+   * INBOX: Send Direct Reply from Live Chat
+   */
+  async sendLiveReply(dto: { phone: string; message: string; tenantId?: string }) {
+    let cleanPhone = dto.phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0') && cleanPhone.length === 11) cleanPhone = cleanPhone.slice(1);
+    if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
+
+    const integration = await this.prisma.platformIntegration.findUnique({
+      where: { provider: 'META_WHATSAPP' as any },
+    });
+    const creds = (integration?.credentials as any) || {};
+    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
+    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+
+    if (!phoneNumberId || !accessToken) {
+      throw new BadRequestException('Meta WhatsApp credentials not configured on platform');
+    }
+
+    let metaMessageId = `wamid_reply_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    let deliveryStatus = 'SENT';
+    let errorMessage: string | null = null;
+
+    try {
+      const res = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanPhone,
+          type: 'text',
+          text: { preview_url: false, body: dto.message },
+        }),
+      });
+
+      const metaJson = await res.json();
+      if (res.ok && metaJson.messages?.[0]?.id) {
+        metaMessageId = metaJson.messages[0].id;
+        deliveryStatus = 'SENT';
+      } else {
+        errorMessage = metaJson.error?.message || 'Meta API rejected message';
+        deliveryStatus = 'FAILED';
+      }
+    } catch (err: any) {
+      errorMessage = err.message;
+      deliveryStatus = 'FAILED';
+    }
+
+    const customer = await this.prisma.customer.findFirst({
+      where: { phone: { contains: cleanPhone.slice(-10) } },
+    });
+
+    const log = await this.prisma.whatsAppMessageLog.create({
+      data: {
+        tenantId: dto.tenantId || customer?.tenantId || null,
+        customerId: customer?.id || null,
+        recipientPhone: dto.phone.startsWith('+') ? dto.phone : `+${cleanPhone}`,
+        recipientName: customer ? `${customer.firstName} ${customer.lastName || ''}`.trim() : dto.phone,
+        direction: 'OUTBOUND',
+        status: deliveryStatus as any,
+        content: dto.message,
+        metaMessageId,
+        errorMessage,
+        sentAt: new Date(),
+        deliveredAt: undefined,
+      },
+    });
+
+    return log;
   }
 }
