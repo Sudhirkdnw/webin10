@@ -13,6 +13,9 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { SupportModule } from './modules/support/support.module';
 import { AdminsModule } from './modules/admins/admins.module';
 import { HealthModule } from './modules/health/health.module';
+import { MailModule } from './modules/mail/mail.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { EmailTemplatesModule } from './modules/email-templates/email-templates.module';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { HealthModule } from './modules/health/health.module';
     SupportModule,
     AdminsModule,
     HealthModule,
+    MailModule,
+    SettingsModule,
+    EmailTemplatesModule,
   ],
 })
 export class AppModule {}

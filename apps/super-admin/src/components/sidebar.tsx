@@ -16,6 +16,8 @@ import {
   Users2,
   LifeBuoy,
   UserCheck,
+  Mail,
+  Settings,
 } from 'lucide-react';
 
 const navigation = [
@@ -27,6 +29,8 @@ const navigation = [
   { name: 'Subscription Plans', href: '/plans', icon: CreditCard },
   { name: 'Dynamic Config', href: '/configurations', icon: Sliders },
   { name: 'Integrations & Gateways', href: '/integrations', icon: Network },
+  { name: 'Email Templates', href: '/email-templates', icon: Mail },
+  { name: 'System Settings', href: '/settings', icon: Settings },
   { name: 'Support Sessions', href: '/support', icon: LifeBuoy },
   { name: 'Platform Team', href: '/admins', icon: Users2 },
   { name: 'Admin Profile', href: '/profile', icon: UserCheck },
