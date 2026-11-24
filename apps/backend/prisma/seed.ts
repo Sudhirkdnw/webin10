@@ -15,7 +15,7 @@ async function main() {
   console.log('--- Seeding Webin10 Platform Baseline Data ---');
 
   // 1. Seed Super Admin
-  const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'superadmin@webin10.com';
+  const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'superadmin@webin10.in';
   const rawPassword = process.env.SUPER_ADMIN_PASSWORD || 'ChangeMeInProduction123!';
   const passwordHash = await bcrypt.hash(rawPassword, 12);
 
@@ -193,7 +193,7 @@ async function main() {
         heroSubtitle: 'The all-in-one multi-tenant SaaS for Gyms, Coaching Centers, Salons & Academies.',
         ctaButtonText: 'Start Free Trial',
         ctaButtonUrl: '/register',
-        contactEmail: 'contact@webin10.com',
+        contactEmail: 'contact@webin10.in',
         contactPhone: '+91 7070799200',
         seoMetaTitle: 'Webin10 - Modern SaaS Business Operating System',
         seoMetaDescription: 'Next-generation cloud management system for gyms, coaching institutes, salons and academies.',
@@ -239,7 +239,7 @@ async function main() {
         password: '', // Google App Password (16 characters)
         fromEmail: 'webin10.in@gmail.com',
         fromName: 'Webin10 Platform',
-        replyTo: 'support@webin10.com',
+        replyTo: 'support@webin10.in',
       },
     },
     // Custom Domain
@@ -249,9 +249,9 @@ async function main() {
       isPublic: true,
       value: {
         enabled: true,
-        cnameTarget: 'cname.webin10.com',
+        cnameTarget: 'cname.webin10.in',
         serverIp: '76.76.21.21',
-        instructions: 'Add a CNAME DNS record pointing your domain or subdomain to cname.webin10.com with TTL 300.',
+        instructions: 'Add a CNAME DNS record pointing your domain or subdomain to cname.webin10.in with TTL 300.',
       },
     },
     // Theme Color
@@ -423,8 +423,8 @@ async function main() {
       status: 'APPROVED' as any,
       isSystemDefault: true,
       bodyText: 'Hello {{1}}, welcome to {{2}}! 🏋️ Your registration is complete. Your Member ID is #{{3}}. View your schedule and access pass: {{4}}',
-      sampleVariables: ['Rahul Sharma', 'FitZone Fitness Club', '1048', 'https://webin10.com/pass/1048'],
-      buttons: [{ type: 'URL', text: 'View Digital Pass', url: 'https://webin10.com/pass/1048' }],
+      sampleVariables: ['Rahul Sharma', 'FitZone Fitness Club', '1048', 'https://webin10.in/pass/1048'],
+      buttons: [{ type: 'URL', text: 'View Digital Pass', url: 'https://webin10.in/pass/1048' }],
     },
     {
       code: 'fee_reminder_due',
@@ -434,7 +434,7 @@ async function main() {
       isSystemDefault: true,
       bodyText: 'Hi {{1}}, friendly reminder that your membership at {{2}} is due on {{3}} (Amount: {{4}}). Please click below to renew online and avoid late fee.',
       sampleVariables: ['Rahul Sharma', 'FitZone Fitness Club', '28 Nov 2026', '₹1,500'],
-      buttons: [{ type: 'URL', text: 'Pay / Renew Now', url: 'https://webin10.com/pay' }],
+      buttons: [{ type: 'URL', text: 'Pay / Renew Now', url: 'https://webin10.in/pay' }],
     },
     {
       code: 'payment_receipt',
@@ -444,7 +444,7 @@ async function main() {
       isSystemDefault: true,
       bodyText: 'Dear {{1}}, thank you! We have received your payment of {{2}} for {{3}}. Your receipt #{{4}} has been generated. Thank you for choosing us!',
       sampleVariables: ['Rahul Sharma', '₹1,500', 'Gold Quarterly Plan', 'INV-2026-9041'],
-      buttons: [{ type: 'URL', text: 'Download Tax Invoice', url: 'https://webin10.com/invoice' }],
+      buttons: [{ type: 'URL', text: 'Download Tax Invoice', url: 'https://webin10.in/invoice' }],
     },
     {
       code: 'class_absent_alert',
@@ -464,7 +464,7 @@ async function main() {
       isSystemDefault: true,
       bodyText: 'Special Festival Offer from {{1}}! 🎉 Enjoy an exclusive {{2}}% OFF on all membership renewals and course batches before {{3}}. Use Code: {{4}}',
       sampleVariables: ['FitZone Fitness Club', '25', '30 Nov 2026', 'FEST25'],
-      buttons: [{ type: 'URL', text: 'Claim Special Offer', url: 'https://webin10.com/offers' }],
+      buttons: [{ type: 'URL', text: 'Claim Special Offer', url: 'https://webin10.in/offers' }],
     },
     // Platform-Level Templates (Super Admin to Tenants)
     {
@@ -474,7 +474,7 @@ async function main() {
       status: 'APPROVED' as any,
       isSystemDefault: true,
       bodyText: 'Welcome {{1}} to Webin10 OS! 🚀 Your business workspace for {{2}} has been activated. Access your portal at {{3}}',
-      sampleVariables: ['Aman Admin', 'FitZone Club', 'https://fitzone.webin10.com'],
+      sampleVariables: ['Aman Admin', 'FitZone Club', 'https://fitzone.webin10.in'],
       buttons: [{ type: 'URL', text: 'Open Admin Portal', url: 'http://localhost:3002' }],
     },
     {
@@ -484,8 +484,8 @@ async function main() {
       status: 'APPROVED' as any,
       isSystemDefault: true,
       bodyText: 'Hi {{1}}, reminder that your Webin10 {{2}} subscription for {{3}} is expiring in 7 days (on {{4}}). Please click below to renew: {{5}}',
-      sampleVariables: ['Aman Admin', 'Growth Plan', 'FitZone Club', '30 Nov 2026', 'https://webin10.com/billing'],
-      buttons: [{ type: 'URL', text: 'Renew Platform Plan', url: 'https://webin10.com/billing' }],
+      sampleVariables: ['Aman Admin', 'Growth Plan', 'FitZone Club', '30 Nov 2026', 'https://webin10.in/billing'],
+      buttons: [{ type: 'URL', text: 'Renew Platform Plan', url: 'https://webin10.in/billing' }],
     },
     {
       code: 'platform_subscription_invoice',
@@ -494,8 +494,8 @@ async function main() {
       status: 'APPROVED' as any,
       isSystemDefault: true,
       bodyText: 'Dear {{1}}, thank you! We have received payment of {{2}} for your Webin10 {{3}} subscription. Download tax receipt: {{4}}',
-      sampleVariables: ['Aman Admin', '₹999.00', 'Growth Plan', 'https://webin10.com/receipt/inv-01'],
-      buttons: [{ type: 'URL', text: 'Download SaaS Invoice', url: 'https://webin10.com/invoice' }],
+      sampleVariables: ['Aman Admin', '₹999.00', 'Growth Plan', 'https://webin10.in/receipt/inv-01'],
+      buttons: [{ type: 'URL', text: 'Download SaaS Invoice', url: 'https://webin10.in/invoice' }],
     },
   ];
 
@@ -546,7 +546,7 @@ async function main() {
           create: {
             legalName: 'FitZone Fitness Private Limited',
             phone: '+91 7070799200',
-            email: 'fitzone@webin10.com',
+            email: 'fitzone@webin10.in',
             address: 'Main Market, West Champaran, Bihar, 845455',
           },
         },
