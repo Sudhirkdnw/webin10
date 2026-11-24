@@ -1,0 +1,19 @@
+{
+  "name": "webin10-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@12.23.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  }
+}
