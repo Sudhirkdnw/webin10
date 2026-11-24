@@ -345,14 +345,16 @@ export default function SystemSettingsPage() {
     setTestingProvider(provider);
     setIntegrationTestResult(null);
     try {
+      const form = providerForms[provider] || {};
       const res = await apiRequest<any>(`/super-admin/integrations/${provider}/test`, {
         method: 'POST',
+        body: JSON.stringify(form),
       });
-      if (res.success) {
+      if (res.success && res.data?.healthStatus === 'HEALTHY') {
         setIntegrationTestResult({ provider, success: true, message: res.data.message || 'Connection verified successfully!' });
         fetchIntegrations();
       } else {
-        setIntegrationTestResult({ provider, success: false, message: res.error || 'Test connection failed' });
+        setIntegrationTestResult({ provider, success: false, message: res.data?.message || res.error || 'Test connection failed' });
       }
     } catch (err: any) {
       setIntegrationTestResult({ provider, success: false, message: err.message || 'Test connection failed' });

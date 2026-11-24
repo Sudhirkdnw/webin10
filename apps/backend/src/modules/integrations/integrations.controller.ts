@@ -55,7 +55,10 @@ export class IntegrationsController {
   @HttpCode(HttpStatus.OK)
   @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER, PlatformRole.PLATFORM_OPERATIONS)
   @ApiOperation({ summary: 'Trigger a live health check test against provider gateway' })
-  async test(@Param('provider') provider: IntegrationProviderEnum) {
-    return this.integrationsService.testConnection(provider);
+  async test(
+    @Param('provider') provider: IntegrationProviderEnum,
+    @Body() body?: any,
+  ) {
+    return this.integrationsService.testConnection(provider, body);
   }
 }

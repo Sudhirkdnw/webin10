@@ -100,33 +100,92 @@ export class IntegrationsService {
     };
   }
 
-  async testConnection(provider: IntegrationProviderEnum) {
+  async testConnection(provider: IntegrationProviderEnum, overrideCredentials?: any) {
     const record = await this.prisma.platformIntegration.findUnique({
       where: { provider: provider as any },
     });
 
-    if (!record) {
+    const creds = overrideCredentials?.credentials || overrideCredentials || record?.credentials || {};
+
+    if (provider === 'META_WHATSAPP') {
+      const phoneNumberId = creds.phoneNumberId || process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+      const accessToken = creds.accessToken || process.env.META_WHATSAPP_ACCESS_TOKEN;
+
+      if (!phoneNumberId || !accessToken) {
+        return {
+          provider,
+          healthStatus: 'DEGRADED',
+          testedAt: new Date(),
+          message: 'Phone Number ID and Access Token are required to test Meta WhatsApp connection.',
+        };
+      }
+
+      try {
+        const res = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}?access_token=${accessToken}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          const errMsg = data.error?.message || 'Meta Cloud API rejected the credentials';
+          this.logger.error(`Meta test failed: ${JSON.stringify(data)}`);
+          return {
+            provider,
+            healthStatus: 'DEGRADED',
+            testedAt: new Date(),
+            message: `Meta API Error: ${errMsg}`,
+          };
+        }
+
+        if (record) {
+          await this.prisma.platformIntegration.update({
+            where: { id: record.id },
+            data: {
+              healthStatus: 'HEALTHY',
+              lastCheckedAt: new Date(),
+            },
+          });
+        }
+
+        const displayName = data.verified_name || data.display_phone_number || data.id;
+        return {
+          provider,
+          healthStatus: 'HEALTHY',
+          testedAt: new Date(),
+          message: `Connection verified! Meta WhatsApp Cloud API connected successfully. (Phone: ${displayName})`,
+        };
+      } catch (err: any) {
+        return {
+          provider,
+          healthStatus: 'DEGRADED',
+          testedAt: new Date(),
+          message: `Network error connecting to Meta: ${err.message}`,
+        };
+      }
+    }
+
+    if (!record && !overrideCredentials) {
       throw new NotFoundException(`Integration '${provider}' is not configured yet`);
     }
 
-    // Health verification check
-    const isHealthy = record.isEnabled && record.credentials !== null;
+    // Health verification check for other providers
+    const isHealthy = Boolean(record?.credentials || overrideCredentials);
     const healthStatus = isHealthy ? 'HEALTHY' : 'DEGRADED';
 
-    await this.prisma.platformIntegration.update({
-      where: { id: record.id },
-      data: {
-        healthStatus,
-        lastCheckedAt: new Date(),
-      },
-    });
+    if (record) {
+      await this.prisma.platformIntegration.update({
+        where: { id: record.id },
+        data: {
+          healthStatus,
+          lastCheckedAt: new Date(),
+        },
+      });
+    }
 
     return {
       provider,
       healthStatus,
       testedAt: new Date(),
       message: isHealthy
-        ? `Connection verification to ${record.name} passed successfully`
+        ? `Connection verification to ${provider} passed successfully`
         : `Provider is disabled or credentials incomplete`,
     };
   }

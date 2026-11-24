@@ -749,10 +749,32 @@ export class WhatsAppService {
       include: { profile: true },
     });
 
+    // Resolve Meta Cloud API credentials
+    const integration = await this.prisma.platformIntegration.findUnique({
+      where: { provider: 'META_WHATSAPP' as any },
+    });
+    const creds = (integration?.credentials as any) || {};
+    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
+    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+
+    if (!phoneNumberId || !accessToken) {
+      throw new BadRequestException(
+        'Meta WhatsApp API credentials not configured! Please configure Phone Number ID and Access Token in Settings -> Integrations or .env',
+      );
+    }
+
     let sent = 0;
     for (const tenant of tenants) {
-      const phone = tenant.profile?.phone;
-      if (phone) {
+      const rawPhone = tenant.profile?.phone;
+      if (rawPhone) {
+        let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+        if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+          cleanPhone = cleanPhone.slice(1);
+        }
+        if (cleanPhone.length === 10) {
+          cleanPhone = `91${cleanPhone}`;
+        }
+
         const platformUrl = process.env.SUPER_ADMIN_URL || process.env.BUSINESS_ADMIN_URL || process.env.APP_URL || '';
         const content =
           dto.messageText ||
@@ -761,21 +783,53 @@ export class WhatsAppService {
             .replace('{{2}}', 'Webin10 Platform')
             .replace('{{3}}', platformUrl);
 
+        let metaMessageId = `wamid_platform_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        let deliveryStatus = 'SENT';
+
+        try {
+          const res = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: cleanPhone,
+              type: 'text',
+              text: { preview_url: false, body: content },
+            }),
+          });
+
+          const metaJson = await res.json();
+          if (res.ok && metaJson.messages?.[0]?.id) {
+            metaMessageId = metaJson.messages[0].id;
+            deliveryStatus = 'DELIVERED';
+            sent++;
+          } else {
+            this.logger.error(`Meta broadcast failed for ${cleanPhone}: ${JSON.stringify(metaJson)}`);
+            deliveryStatus = 'FAILED';
+          }
+        } catch (err: any) {
+          this.logger.error(`Network error sending WhatsApp to ${cleanPhone}: ${err.message}`);
+          deliveryStatus = 'FAILED';
+        }
+
         await this.prisma.whatsAppMessageLog.create({
           data: {
             tenantId: tenant.id,
-            recipientPhone: phone,
+            recipientPhone: rawPhone,
             recipientName: tenant.name,
             direction: 'OUTBOUND',
-            status: 'DELIVERED',
+            status: deliveryStatus as any,
             content,
             templateCode: template.code,
-            metaMessageId: `wamid_platform_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            metaMessageId,
             sentAt: new Date(),
-            deliveredAt: new Date(),
+            deliveredAt: deliveryStatus === 'DELIVERED' ? new Date() : undefined,
           },
         });
-        sent++;
       }
     }
 

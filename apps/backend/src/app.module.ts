@@ -42,7 +42,7 @@ import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
     SettingsModule,
     EmailTemplatesModule,
     UploadsModule,
-    WhatsAppModule,
+    WhatsAppModule,    
   ],
 })
 export class AppModule {}
