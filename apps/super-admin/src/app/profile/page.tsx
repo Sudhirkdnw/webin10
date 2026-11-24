@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { ImageUploader } from '@/components/image-uploader';
 import {
   User,
   ShieldCheck,
@@ -21,8 +22,9 @@ export default function ProfilePage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Name Form
+  // Profile Form
   const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [nameSuccess, setNameSuccess] = useState(false);
 
@@ -44,6 +46,7 @@ export default function ProfilePage() {
     if (pRes.success) {
       setProfile(pRes.data);
       setName(pRes.data.name);
+      setAvatarUrl(pRes.data.avatarUrl || '');
     }
     if (sRes.success) {
       setSessions(sRes.data || []);
@@ -62,7 +65,7 @@ export default function ProfilePage() {
 
     const res = await apiRequest('/auth/super-admin/me', {
       method: 'PATCH',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, avatarUrl }),
     });
 
     if (res.success) {
@@ -73,7 +76,7 @@ export default function ProfilePage() {
       }
       setTimeout(() => setNameSuccess(false), 3000);
     } else {
-      alert(res.error || 'Failed to update name');
+      alert(res.error || 'Failed to update profile');
     }
     setSavingName(false);
   };
@@ -132,8 +135,15 @@ export default function ProfilePage() {
         {/* Profile Card */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-start gap-4 mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 text-2xl font-bold">
-              {profile?.name ? profile.name.slice(0, 2).toUpperCase() : 'SA'}
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-200 overflow-hidden flex items-center justify-center text-indigo-700 text-2xl font-bold shrink-0">
+              {avatarUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={avatarUrl} alt={profile?.name} className="w-full h-full object-cover" />
+              ) : profile?.name ? (
+                profile.name.slice(0, 2).toUpperCase()
+              ) : (
+                'SA'
+              )}
             </div>
             <div>
               <div className="flex items-center gap-3">
@@ -161,13 +171,23 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div className="flex items-center gap-3">
+            <div>
+              <ImageUploader
+                label="Profile Photo (Cloudinary)"
+                value={avatarUrl}
+                onChange={setAvatarUrl}
+                folder="profiles"
+                aspect="circle"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
               <button
                 type="submit"
                 disabled={savingName}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium shadow-sm transition-colors disabled:opacity-50"
               >
-                {savingName ? 'Saving...' : 'Update Name'}
+                {savingName ? 'Saving...' : 'Save Profile Changes'}
               </button>
               {nameSuccess && (
                 <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">

@@ -16,6 +16,7 @@ import { HealthModule } from './modules/health/health.module';
 import { MailModule } from './modules/mail/mail.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { EmailTemplatesModule } from './modules/email-templates/email-templates.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { EmailTemplatesModule } from './modules/email-templates/email-templates.
     MailModule,
     SettingsModule,
     EmailTemplatesModule,
+    UploadsModule,
   ],
 })
 export class AppModule {}

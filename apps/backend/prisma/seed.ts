@@ -268,6 +268,19 @@ async function main() {
         faviconUrl: '',
       },
     },
+    // Cloudinary Media Storage Settings
+    {
+      group: 'cloudinary',
+      key: 'cloudinary_settings',
+      isPublic: false,
+      value: {
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+        apiKey: process.env.CLOUDINARY_API_KEY || '',
+        apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+        folderPrefix: 'webin10',
+        secure: true,
+      },
+    },
   ];
 
   for (const setting of defaultSettings) {

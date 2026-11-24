@@ -205,6 +205,7 @@ export class AuthService {
         email: true,
         name: true,
         role: true,
+        avatarUrl: true,
         mfaEnabled: true,
         createdAt: true,
         updatedAt: true,
@@ -218,15 +219,19 @@ export class AuthService {
     return admin;
   }
 
-  async updateProfile(adminId: string, dto: { name: string }, ip?: string) {
+  async updateProfile(adminId: string, dto: { name: string; avatarUrl?: string }, ip?: string) {
     const updated = await this.prisma.platformAdmin.update({
       where: { id: adminId },
-      data: { name: dto.name },
+      data: {
+        name: dto.name,
+        ...(dto.avatarUrl !== undefined ? { avatarUrl: dto.avatarUrl } : {}),
+      },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
+        avatarUrl: true,
         mfaEnabled: true,
         updatedAt: true,
       },
@@ -238,7 +243,7 @@ export class AuthService {
       action: 'profile.update',
       entity: 'platform_admins',
       entityId: adminId,
-      details: { newName: dto.name },
+      details: { newName: dto.name, avatarUrl: dto.avatarUrl },
       ipAddress: ip,
     });
 

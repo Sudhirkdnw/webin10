@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '@/lib/api';
+import { ImageUploader } from '@/components/image-uploader';
 import {
   Sliders,
   FileText,
@@ -22,6 +23,7 @@ import {
   Save,
   RotateCcw,
   ExternalLink,
+  Cloud,
 } from 'lucide-react';
 
 type TabKey =
@@ -34,7 +36,8 @@ type TabKey =
   | 'social'
   | 'mail'
   | 'custom_domain'
-  | 'theme';
+  | 'theme'
+  | 'cloudinary';
 
 interface TabDefinition {
   key: TabKey;
@@ -53,6 +56,7 @@ const TABS: TabDefinition[] = [
   { key: 'mail', label: 'Mail Settings', icon: Mail },
   { key: 'custom_domain', label: 'Custom Domain', icon: Globe2 },
   { key: 'theme', label: 'Theme Color', icon: Palette },
+  { key: 'cloudinary', label: 'Cloudinary Storage', icon: Cloud },
 ];
 
 export default function SystemSettingsPage() {
@@ -73,6 +77,10 @@ export default function SystemSettingsPage() {
   const [testMailRecipient, setTestMailRecipient] = useState('');
   const [testMailSending, setTestMailSending] = useState(false);
   const [testMailResult, setTestMailResult] = useState<any | null>(null);
+
+  // Cloudinary testing state
+  const [testingCloudinary, setTestingCloudinary] = useState(false);
+  const [cloudinaryResult, setCloudinaryResult] = useState<any | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -102,12 +110,33 @@ export default function SystemSettingsPage() {
     setActiveTab(tab);
     setStatusMsg(null);
     setTestMailResult(null);
+    setCloudinaryResult(null);
     const tabVal = settings?.[tab]?.value || {};
     setFormData({ ...tabVal });
   }
 
   function handleFieldChange(field: string, value: any) {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleTestCloudinary() {
+    setTestingCloudinary(true);
+    setCloudinaryResult(null);
+    try {
+      const res = await apiRequest<any>('/uploads/test-connection', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      if (res.success) {
+        setCloudinaryResult(res.data);
+      } else {
+        setCloudinaryResult({ success: false, message: res.error || 'Failed to ping Cloudinary' });
+      }
+    } catch (err: any) {
+      setCloudinaryResult({ success: false, message: err.message || 'Failed to ping Cloudinary' });
+    } finally {
+      setTestingCloudinary(false);
+    }
   }
 
   async function handleSave() {
@@ -1263,32 +1292,120 @@ export default function SystemSettingsPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-800">
+                  <div>
+                    <ImageUploader
+                      label="Platform Logo (Cloudinary CDN)"
+                      value={formData.logoUrl || ''}
+                      onChange={(url) => handleFieldChange('logoUrl', url)}
+                      folder="branding"
+                      aspect="banner"
+                    />
+                  </div>
+
+                  <div>
+                    <ImageUploader
+                      label="Platform Favicon (Cloudinary CDN)"
+                      value={formData.faviconUrl || ''}
+                      onChange={(url) => handleFieldChange('faviconUrl', url)}
+                      folder="branding"
+                      aspect="square"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 11. CLOUDINARY MEDIA STORAGE TAB */}
+            {activeTab === 'cloudinary' && (
+              <div className="space-y-6">
+                <div className="p-4 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-400 space-y-1">
+                  <p className="font-semibold text-sky-300">Cloudinary Global Media CDN Integration:</p>
+                  <p className="text-slate-300">
+                    All admin profile photos, business logos, user avatars, and invoice attachments are stored and delivered with automatic format optimization and compression via Cloudinary.
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                      Platform Logo URL:
+                      Cloud Name:*
                     </label>
                     <input
-                      type="url"
-                      value={formData.logoUrl || ''}
-                      onChange={(e) => handleFieldChange('logoUrl', e.target.value)}
-                      placeholder="https://yourcdn.com/logo.png"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      type="text"
+                      value={formData.cloudName || ''}
+                      onChange={(e) => handleFieldChange('cloudName', e.target.value)}
+                      placeholder="e.g. dxyz123ab"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                      Favicon URL:
+                      API Key:*
                     </label>
                     <input
-                      type="url"
-                      value={formData.faviconUrl || ''}
-                      onChange={(e) => handleFieldChange('faviconUrl', e.target.value)}
-                      placeholder="https://yourcdn.com/favicon.ico"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      type="text"
+                      value={formData.apiKey || ''}
+                      onChange={(e) => handleFieldChange('apiKey', e.target.value)}
+                      placeholder="e.g. 123456789012345"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                      API Secret:*
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.apiSecret || ''}
+                      onChange={(e) => handleFieldChange('apiSecret', e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                      Root Folder Prefix:
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.folderPrefix || 'webin10'}
+                      onChange={(e) => handleFieldChange('folderPrefix', e.target.value)}
+                      placeholder="webin10"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Test Cloudinary Connection Button */}
+                <div className="border-t border-slate-800 pt-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleTestCloudinary}
+                      disabled={testingCloudinary}
+                      className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-2 rounded-lg text-sm transition-all disabled:opacity-50"
+                    >
+                      {testingCloudinary ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
+                      <span>Test Cloudinary Connection</span>
+                    </button>
+                    <span className="text-xs text-slate-500">Pings Cloudinary API to verify credentials</span>
+                  </div>
+
+                  {cloudinaryResult && (
+                    <div
+                      className={`p-3.5 rounded-xl text-xs border ${
+                        cloudinaryResult.success
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                          : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                      }`}
+                    >
+                      <p className="font-semibold">{cloudinaryResult.message}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
