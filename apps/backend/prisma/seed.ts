@@ -1,3 +1,11 @@
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// 1. Load environment variables before initializing PrismaClient
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config();
+
 import { PrismaClient, PlatformRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
