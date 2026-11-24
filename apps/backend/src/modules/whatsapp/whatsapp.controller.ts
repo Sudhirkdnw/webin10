@@ -2,7 +2,9 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Query,
+  Param,
   Body,
   Res,
   HttpStatus,
@@ -11,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { WhatsAppService } from './whatsapp.service';
+import { WhatsAppService, CreateCampaignDto, ConnectAccountDto } from './whatsapp.service';
 
 @ApiTags('WhatsApp')
 @Controller('whatsapp')
@@ -22,7 +24,6 @@ export class WhatsAppController {
 
   /**
    * Meta Webhook Verification Endpoint (GET)
-   * Meta sends hub.mode, hub.challenge, and hub.verify_token
    */
   @Get('webhook')
   @ApiOperation({ summary: 'Meta WhatsApp Webhook Verification Challenge' })
@@ -47,7 +48,6 @@ export class WhatsAppController {
 
   /**
    * Meta Webhook Event Receiver (POST)
-   * Receives incoming messages, status updates (delivered, read, failed)
    */
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
@@ -68,5 +68,96 @@ export class WhatsAppController {
       body.recipientPhone,
       body.messageText || 'Hello from Webin10! Your WhatsApp Cloud API is successfully connected.',
     );
+  }
+
+  // -------------------------------------------------------------------
+  // BUSINESS ADMIN / TENANT WHATSAPP MARKETING & AUTOMATION ENDPOINTS
+  // -------------------------------------------------------------------
+
+  @Get('accounts/:tenantId')
+  @ApiOperation({ summary: "Get Tenant's WhatsApp Account Connection Details" })
+  async getTenantAccount(@Param('tenantId') tenantId: string) {
+    return this.whatsAppService.getAccount(tenantId);
+  }
+
+  @Post('accounts/:tenantId/connect')
+  @ApiOperation({ summary: "Connect Tenant's WhatsApp Account (Embedded or Shared)" })
+  async connectTenantAccount(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: ConnectAccountDto,
+  ) {
+    return this.whatsAppService.connectAccount(tenantId, dto);
+  }
+
+  @Post('accounts/:tenantId/disconnect')
+  @ApiOperation({ summary: "Disconnect Tenant's WhatsApp Account" })
+  async disconnectTenantAccount(@Param('tenantId') tenantId: string) {
+    return this.whatsAppService.disconnectAccount(tenantId);
+  }
+
+  @Get('templates')
+  @ApiOperation({ summary: 'List approved WhatsApp templates (System & Custom)' })
+  async listTemplates(@Query('tenantId') tenantId?: string) {
+    return this.whatsAppService.listTemplates(tenantId);
+  }
+
+  @Get('customers/:tenantId')
+  @ApiOperation({ summary: 'List Customers & Audience counts for Tenant' })
+  async listCustomers(
+    @Param('tenantId') tenantId: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.whatsAppService.listCustomers(tenantId, { status, search });
+  }
+
+  @Post('customers/:tenantId')
+  @ApiOperation({ summary: 'Add a new Customer (triggers Welcome WhatsApp if active)' })
+  async createCustomer(
+    @Param('tenantId') tenantId: string,
+    @Body() data: any,
+  ) {
+    return this.whatsAppService.createCustomer(tenantId, data);
+  }
+
+  @Get('campaigns/:tenantId')
+  @ApiOperation({ summary: 'List Bulk Broadcast Campaigns' })
+  async listCampaigns(@Param('tenantId') tenantId: string) {
+    return this.whatsAppService.listCampaigns(tenantId);
+  }
+
+  @Post('campaigns/:tenantId')
+  @ApiOperation({ summary: 'Create and Dispatch Bulk Campaign' })
+  async createCampaign(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreateCampaignDto,
+  ) {
+    return this.whatsAppService.createCampaign(tenantId, dto);
+  }
+
+  @Get('logs/:tenantId')
+  @ApiOperation({ summary: 'List WhatsApp Inbound/Outbound Message Logs' })
+  async listLogs(
+    @Param('tenantId') tenantId: string,
+    @Query('direction') direction?: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.whatsAppService.listLogs(tenantId, { direction, limit: limit ? Number(limit) : undefined });
+  }
+
+  @Get('automations/:tenantId')
+  @ApiOperation({ summary: 'List Automation Rules for Tenant' })
+  async listAutomations(@Param('tenantId') tenantId: string) {
+    return this.whatsAppService.listAutomations(tenantId);
+  }
+
+  @Put('automations/:tenantId/:ruleId')
+  @ApiOperation({ summary: 'Update an Automation Rule toggle or timing' })
+  async updateAutomation(
+    @Param('tenantId') tenantId: string,
+    @Param('ruleId') ruleId: string,
+    @Body() data: { isEnabled?: boolean; triggerTiming?: number },
+  ) {
+    return this.whatsAppService.updateAutomation(tenantId, ruleId, data);
   }
 }

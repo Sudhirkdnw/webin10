@@ -99,6 +99,12 @@ model Tenant {
   featureOverrides TenantFeatureOverride[]
   auditLogs    AuditLog[]
   supportRequests SupportAccessRequest[]
+  customers       Customer[]
+  whatsAppAccount WhatsAppAccount?
+  whatsAppTemplates WhatsAppTemplate[]
+  whatsAppCampaigns WhatsAppCampaign[]
+  whatsAppLogs    WhatsAppMessageLog[]
+  whatsAppAutomations WhatsAppAutomationRule[]
 
   @@index([status])
   @@index([categoryId])
@@ -471,5 +477,226 @@ model EmailTemplate {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("email_templates")
+}
+
+// -------------------------------------------------------------
+// 10. CUSTOMER CRM & MULTI-TENANT WHATSAPP MARKETING & AUTOMATION
+// -------------------------------------------------------------
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  LEAD
+}
+
+enum CustomerType {
+  GYM_MEMBER
+  COACHING_STUDENT
+  GENERAL
+}
+
+model Customer {
+  id             String         @id @default(uuid()) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  firstName      String         @map("first_name")
+  lastName       String?        @map("last_name")
+  phone          String
+  email          String?
+  status         CustomerStatus @default(ACTIVE)
+  customerType   CustomerType   @default(GENERAL) @map("customer_type")
+  avatarUrl      String?        @map("avatar_url")
+  membershipPlan String?        @map("membership_plan")
+  pendingAmount  Decimal        @default(0.0) @map("pending_amount") @db.Decimal(10, 2)
+  expiryDate     DateTime?      @map("expiry_date")
+  joinedAt       DateTime       @default(now()) @map("joined_at")
+  notes          String?        @db.Text
+  metadata       Json?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  whatsAppLogs   WhatsAppMessageLog[]
+
+  @@index([tenantId])
+  @@index([phone])
+  @@index([status])
+  @@map("customers")
+}
+
+enum WhatsAppAccountMode {
+  EMBEDDED_WABA
+  SHARED_PLATFORM
+  CUSTOM_TOKEN
+}
+
+enum WhatsAppConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  PENDING
+}
+
+model WhatsAppAccount {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  tenantId           String                   @unique @map("tenant_id") @db.Uuid
+  mode               WhatsAppAccountMode      @default(SHARED_PLATFORM)
+  status             WhatsAppConnectionStatus @default(CONNECTED)
+  phoneNumberId      String?                  @map("phone_number_id")
+  wabaId             String?                  @map("waba_id")
+  displayPhoneNumber String?                  @map("display_phone_number")
+  qualityRating      String                   @default("GREEN") @map("quality_rating")
+  creditsBalance     Decimal                  @default(100.0) @map("credits_balance") @db.Decimal(10, 2)
+  accessToken        String?                  @map("access_token") @db.Text
+  settings           Json?
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+
+  tenant             Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_accounts")
+}
+
+enum WhatsAppTemplateCategory {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
+}
+
+enum WhatsAppTemplateStatus {
+  APPROVED
+  PENDING
+  REJECTED
+  DRAFT
+}
+
+model WhatsAppTemplate {
+  id              String                   @id @default(uuid()) @db.Uuid
+  tenantId        String?                  @map("tenant_id") @db.Uuid
+  name            String
+  code            String                   @unique
+  language        String                   @default("en_US")
+  category        WhatsAppTemplateCategory @default(UTILITY)
+  status          WhatsAppTemplateStatus   @default(APPROVED)
+  headerType      String                   @default("NONE") @map("header_type") // NONE, IMAGE, VIDEO, DOCUMENT
+  headerUrl       String?                  @map("header_url")
+  bodyText        String                   @map("body_text") @db.Text
+  footerText      String?                  @map("footer_text")
+  buttons         Json?                    // Quick reply, URL CTA, Phone call
+  sampleVariables Json?                    @map("sample_variables") // ["Rahul", "FitZone Gym", "Rs 1,500", "28 Nov"]
+  isSystemDefault Boolean                  @default(false) @map("is_system_default")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  tenant          Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaigns       WhatsAppCampaign[]
+
+  @@index([tenantId])
+  @@index([category])
+  @@map("whatsapp_templates")
+}
+
+enum WhatsAppCampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model WhatsAppCampaign {
+  id             String                 @id @default(uuid()) @db.Uuid
+  tenantId       String                 @map("tenant_id") @db.Uuid
+  name           String
+  templateId     String                 @map("template_id") @db.Uuid
+  targetSegment  String                 @default("ALL_ACTIVE") @map("target_segment") // ALL_ACTIVE, EXPIRED_MEMBERS, FEE_DUE, CUSTOM_LIST
+  scheduledAt    DateTime?              @map("scheduled_at")
+  status         WhatsAppCampaignStatus @default(DRAFT)
+  totalCount     Int                    @default(0) @map("total_count")
+  sentCount      Int                    @default(0) @map("sent_count")
+  deliveredCount Int                    @default(0) @map("delivered_count")
+  readCount      Int                    @default(0) @map("read_count")
+  failedCount    Int                    @default(0) @map("failed_count")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template       WhatsAppTemplate       @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  logs           WhatsAppMessageLog[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("whatsapp_campaigns")
+}
+
+enum WhatsAppMessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum WhatsAppMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model WhatsAppMessageLog {
+  id              String                   @id @default(uuid()) @db.Uuid
+  tenantId        String                   @map("tenant_id") @db.Uuid
+  campaignId      String?                  @map("campaign_id") @db.Uuid
+  customerId      String?                  @map("customer_id") @db.Uuid
+  recipientPhone  String                   @map("recipient_phone")
+  recipientName   String?                  @map("recipient_name")
+  direction       WhatsAppMessageDirection @default(OUTBOUND)
+  status          WhatsAppMessageStatus    @default(SENT)
+  content         String                   @db.Text
+  templateCode    String?                  @map("template_code")
+  metaMessageId   String?                  @map("meta_message_id")
+  errorMessage    String?                  @map("error_message")
+  sentAt          DateTime                 @default(now()) @map("sent_at")
+  deliveredAt     DateTime?                @map("delivered_at")
+  readAt          DateTime?                @map("read_at")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign        WhatsAppCampaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  customer        Customer?                @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([recipientPhone])
+  @@index([status])
+  @@index([direction])
+  @@map("whatsapp_message_logs")
+}
+
+enum WhatsAppAutomationEventType {
+  MEMBER_WELCOME
+  FEE_REMINDER_DUE
+  FEE_OVERDUE
+  PAYMENT_RECEIPT
+  CLASS_ABSENT
+  MEMBERSHIP_EXPIRED
+  FESTIVAL_BROADCAST
+}
+
+model WhatsAppAutomationRule {
+  id            String                      @id @default(uuid()) @db.Uuid
+  tenantId      String                      @map("tenant_id") @db.Uuid
+  eventType     WhatsAppAutomationEventType @map("event_type")
+  name          String
+  isEnabled     Boolean                     @default(true) @map("is_enabled")
+  templateCode  String                      @map("template_code")
+  triggerTiming Int                         @default(0) @map("trigger_timing") // 0 = Instant, -3 = 3 days before, 1 = 1 day after
+  parameters    Json?
+  createdAt     DateTime                    @default(now()) @map("created_at")
+  updatedAt     DateTime                    @updatedAt @map("updated_at")
+
+  tenant        Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, eventType])
+  @@index([tenantId])
+  @@map("whatsapp_automation_rules")
 }
 

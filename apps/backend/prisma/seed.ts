@@ -414,6 +414,149 @@ async function main() {
     console.log(`✓ Email Template seeded: ${template.name} [${template.slug}]`);
   }
 
+  // 10. Seed Default System WhatsApp Templates
+  const defaultWhatsAppTemplates = [
+    {
+      code: 'member_welcome',
+      name: 'New Member Welcome Greeting',
+      category: 'UTILITY' as any,
+      status: 'APPROVED' as any,
+      isSystemDefault: true,
+      bodyText: 'Hello {{1}}, welcome to {{2}}! 🏋️ Your registration is complete. Your Member ID is #{{3}}. View your schedule and access pass: {{4}}',
+      sampleVariables: ['Rahul Sharma', 'FitZone Fitness Club', '1048', 'https://webin10.com/pass/1048'],
+      buttons: [{ type: 'URL', text: 'View Digital Pass', url: 'https://webin10.com/pass/1048' }],
+    },
+    {
+      code: 'fee_reminder_due',
+      name: 'Membership Renewal / Fee Reminder',
+      category: 'UTILITY' as any,
+      status: 'APPROVED' as any,
+      isSystemDefault: true,
+      bodyText: 'Hi {{1}}, friendly reminder that your membership at {{2}} is due on {{3}} (Amount: {{4}}). Please click below to renew online and avoid late fee.',
+      sampleVariables: ['Rahul Sharma', 'FitZone Fitness Club', '28 Nov 2026', '₹1,500'],
+      buttons: [{ type: 'URL', text: 'Pay / Renew Now', url: 'https://webin10.com/pay' }],
+    },
+    {
+      code: 'payment_receipt',
+      name: 'Fee Payment Confirmation & Invoice',
+      category: 'UTILITY' as any,
+      status: 'APPROVED' as any,
+      isSystemDefault: true,
+      bodyText: 'Dear {{1}}, thank you! We have received your payment of {{2}} for {{3}}. Your receipt #{{4}} has been generated. Thank you for choosing us!',
+      sampleVariables: ['Rahul Sharma', '₹1,500', 'Gold Quarterly Plan', 'INV-2026-9041'],
+      buttons: [{ type: 'URL', text: 'Download Tax Invoice', url: 'https://webin10.com/invoice' }],
+    },
+    {
+      code: 'class_absent_alert',
+      name: 'Class Absence Notice',
+      category: 'UTILITY' as any,
+      status: 'APPROVED' as any,
+      isSystemDefault: true,
+      bodyText: 'Dear Parent/Guardian, {{1}} was marked absent today in {{2}} batch scheduled at {{3}}. For queries, reach us at {{4}}.',
+      sampleVariables: ['Aman Kumar', 'Physics 12th Board', '10:00 AM', '+91 7070799200'],
+      buttons: [{ type: 'PHONE_NUMBER', text: 'Call Institute', phoneNumber: '+917070799200' }],
+    },
+    {
+      code: 'festival_offer_blast',
+      name: 'Promotional Festival Offer & Discount',
+      category: 'MARKETING' as any,
+      status: 'APPROVED' as any,
+      isSystemDefault: true,
+      bodyText: 'Special Festival Offer from {{1}}! 🎉 Enjoy an exclusive {{2}}% OFF on all membership renewals and course batches before {{3}}. Use Code: {{4}}',
+      sampleVariables: ['FitZone Fitness Club', '25', '30 Nov 2026', 'FEST25'],
+      buttons: [{ type: 'URL', text: 'Claim Special Offer', url: 'https://webin10.com/offers' }],
+    },
+  ];
+
+  for (const t of defaultWhatsAppTemplates) {
+    await prisma.whatsAppTemplate.upsert({
+      where: { code: t.code },
+      update: {},
+      create: t,
+    });
+    console.log(`✓ WhatsApp Template seeded: ${t.name} [${t.code}]`);
+  }
+
+  // 11. Seed Demo Tenant (Gym & Fitness) with Customers for testing
+  const gymCat = await prisma.businessCategory.findUnique({ where: { slug: 'gym' } });
+  if (gymCat) {
+    const demoTenant = await prisma.tenant.upsert({
+      where: { slug: 'fitzone-gym' },
+      update: {},
+      create: {
+        name: 'FitZone Club & Studio',
+        slug: 'fitzone-gym',
+        categoryId: gymCat.id,
+        status: 'ACTIVE',
+        profile: {
+          create: {
+            legalName: 'FitZone Fitness Private Limited',
+            phone: '+91 7070799200',
+            email: 'fitzone@webin10.com',
+            address: 'Main Market, West Champaran, Bihar, 845455',
+          },
+        },
+      },
+    });
+
+    // Seed default WhatsApp Account for Demo Tenant
+    await prisma.whatsAppAccount.upsert({
+      where: { tenantId: demoTenant.id },
+      update: {},
+      create: {
+        tenantId: demoTenant.id,
+        mode: 'SHARED_PLATFORM',
+        status: 'CONNECTED',
+        displayPhoneNumber: '+91 7070799200',
+        qualityRating: 'GREEN',
+        creditsBalance: 500.0,
+      },
+    });
+
+    // Seed Demo Customers
+    const demoCustomers = [
+      { firstName: 'Aman', lastName: 'Kumar', phone: '+919876543210', email: 'aman@gmail.com', status: 'ACTIVE' as any, membershipPlan: 'Annual Gold Plan', pendingAmount: 0.0, expiryDate: new Date(Date.now() + 90 * 86400000) },
+      { firstName: 'Rahul', lastName: 'Verma', phone: '+919876543211', email: 'rahul@gmail.com', status: 'ACTIVE' as any, membershipPlan: 'Monthly Strength', pendingAmount: 1500.0, expiryDate: new Date(Date.now() + 2 * 86400000) },
+      { firstName: 'Pooja', lastName: 'Singh', phone: '+919876543212', email: 'pooja@gmail.com', status: 'EXPIRED' as any, membershipPlan: 'Quarterly Cardio', pendingAmount: 0.0, expiryDate: new Date(Date.now() - 15 * 86400000) },
+      { firstName: 'Vikram', lastName: 'Aditya', phone: '+919876543213', email: 'vikram@gmail.com', status: 'LEAD' as any, membershipPlan: 'Trial Inquiry', pendingAmount: 0.0, expiryDate: null },
+      { firstName: 'Sneha', lastName: 'Gupta', phone: '+919876543214', email: 'sneha@gmail.com', status: 'ACTIVE' as any, membershipPlan: '6-Month Crossfit', pendingAmount: 2000.0, expiryDate: new Date(Date.now() + 1 * 86400000) },
+    ];
+
+    for (const c of demoCustomers) {
+      const existing = await prisma.customer.findFirst({
+        where: { tenantId: demoTenant.id, phone: c.phone },
+      });
+      if (!existing) {
+        await prisma.customer.create({
+          data: {
+            ...c,
+            tenantId: demoTenant.id,
+          },
+        });
+      }
+    }
+
+    // Seed Default Automation Rules
+    const autoRules = [
+      { eventType: 'MEMBER_WELCOME' as any, name: 'Welcome Message on Registration', isEnabled: true, templateCode: 'member_welcome', triggerTiming: 0 },
+      { eventType: 'FEE_REMINDER_DUE' as any, name: '3-Day Prior Fee Renewal Reminder', isEnabled: true, templateCode: 'fee_reminder_due', triggerTiming: -3 },
+      { eventType: 'PAYMENT_RECEIPT' as any, name: 'Instant Payment Confirmation Invoice', isEnabled: true, templateCode: 'payment_receipt', triggerTiming: 0 },
+      { eventType: 'CLASS_ABSENT' as any, name: 'Absent Alert Notification', isEnabled: true, templateCode: 'class_absent_alert', triggerTiming: 0 },
+    ];
+
+    for (const r of autoRules) {
+      await prisma.whatsAppAutomationRule.upsert({
+        where: { tenantId_eventType: { tenantId: demoTenant.id, eventType: r.eventType } },
+        update: {},
+        create: {
+          ...r,
+          tenantId: demoTenant.id,
+        },
+      });
+    }
+
+    console.log(`✓ Demo Tenant FitZone seeded with WhatsApp Account, Customers and Automation Rules`);
+  }
 
   console.log('--- Baseline Seeding Completed Successfully ---');
 }
