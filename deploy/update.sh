@@ -5,9 +5,27 @@ echo "============================================="
 echo "  🚀 Updating Webin10 Platform on EC2        "
 echo "============================================="
 
-# 1. Pull latest code from GitHub
+# 1. Pull latest code from GitHub (safely stashing any local changes like nginx certs)
 echo "--> 1. Pulling latest code..."
+git stash || true
 git pull origin main
+
+# 2. Sync environment variables for frontend Next.js builds if needed
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
+
+# Ensure .env.local exists for Super Admin
+if [ ! -f apps/super-admin/.env.local ]; then
+  echo "NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.sudhirkdnw.in/api/v1}" > apps/super-admin/.env.local
+  echo "--> Created apps/super-admin/.env.local"
+fi
+
+# Ensure .env.local exists for Business Admin
+if [ ! -f apps/business-admin/.env.local ]; then
+  echo "NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.sudhirkdnw.in/api/v1}" > apps/business-admin/.env.local
+  echo "--> Created apps/business-admin/.env.local"
+fi
 
 # 2. Install any new dependencies
 echo "--> 2. Installing dependencies..."

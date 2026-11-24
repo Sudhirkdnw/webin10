@@ -12,20 +12,54 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // Dynamic CORS allowing local, production domains and subdomains
+  // CORS strictly configured via environment variables (.env)
+  const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  const allowedOrigins = new Set<string>([
+    ...configuredCorsOrigins,
+    ...(process.env.SUPER_ADMIN_URL ? [process.env.SUPER_ADMIN_URL.trim()] : []),
+    ...(process.env.BUSINESS_ADMIN_URL ? [process.env.BUSINESS_ADMIN_URL.trim()] : []),
+    ...(process.env.APP_URL ? [process.env.APP_URL.trim()] : []),
+  ]);
+
   app.enableCors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile apps, or server-to-server)
       if (!origin) return callback(null, true);
-      if (
-        origin.includes('localhost') ||
-        origin.includes('sudhirkdnw.in') ||
-        origin.includes('webin10.in') ||
-        origin === process.env.SUPER_ADMIN_URL ||
-        origin === process.env.BUSINESS_ADMIN_URL
-      ) {
+
+      // If '*' is configured in CORS_ORIGINS, allow all
+      if (allowedOrigins.has('*') || process.env.CORS_ORIGINS === '*') {
         return callback(null, true);
       }
-      return callback(null, true);
+
+      // Allow localhost in non-production environments
+      if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        return callback(null, true);
+      }
+
+      // Check against configured allowed origins and root domains
+      const isAllowed = Array.from(allowedOrigins).some((allowed) => {
+        if (!allowed) return false;
+        if (origin === allowed) return true;
+
+        const cleanAllowed = allowed.replace(/^https?:\/\//, '').replace(/^\*\./, '');
+        try {
+          const originHost = new URL(origin).hostname;
+          return originHost === cleanAllowed || originHost.endsWith(`.${cleanAllowed}`);
+        } catch {
+          return origin.includes(cleanAllowed);
+        }
+      });
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+
+      logger.warn(`Blocked by CORS: ${origin}. Set CORS_ORIGINS in .env to allow it.`);
+      return callback(new Error(`CORS blocked for origin: ${origin}`), false);
     },
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',

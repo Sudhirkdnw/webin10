@@ -187,6 +187,8 @@ export class WhatsAppService {
     if (welcomeRule && welcomeRule.isEnabled) {
       const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
       const businessName = tenant?.name || 'Webin10 Partner';
+      const appUrl = process.env.BUSINESS_ADMIN_URL || process.env.APP_URL || '';
+      const memberPortalUrl = appUrl ? `${appUrl}/c/${customer.id}` : `/c/${customer.id}`;
 
       await this.sendDirectMessage({
         tenantId,
@@ -198,7 +200,7 @@ export class WhatsAppService {
           customer.firstName,
           businessName,
           customer.id.substring(0, 6).toUpperCase(),
-          `https://webin10.com/c/${customer.id}`,
+          memberPortalUrl,
         ],
       });
     }
@@ -457,9 +459,13 @@ export class WhatsAppService {
 
     const creds = (integration?.credentials as any) || {};
     const configuredToken =
-      creds.webhookVerifyToken ||
       process.env.META_WHATSAPP_VERIFY_TOKEN ||
-      'webin10_verify_secret';
+      creds.webhookVerifyToken;
+
+    if (!configuredToken) {
+      this.logger.error('WhatsApp Webhook verification failed: META_WHATSAPP_VERIFY_TOKEN is not configured in .env or platform integration.');
+      return false;
+    }
 
     return verifyToken === configuredToken;
   }
@@ -661,12 +667,13 @@ export class WhatsAppService {
     for (const tenant of tenants) {
       const phone = tenant.profile?.phone;
       if (phone) {
+        const platformUrl = process.env.SUPER_ADMIN_URL || process.env.BUSINESS_ADMIN_URL || process.env.APP_URL || '';
         const content =
           dto.messageText ||
           template.bodyText
             .replace('{{1}}', tenant.name)
             .replace('{{2}}', 'Webin10 Platform')
-            .replace('{{3}}', 'https://webin10.com');
+            .replace('{{3}}', platformUrl);
 
         await this.prisma.whatsAppMessageLog.create({
           data: {
