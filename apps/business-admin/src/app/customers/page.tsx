@@ -18,11 +18,12 @@ import {
   RefreshCw,
   Plus,
 } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/api';
 
-const API_BASE = 'http://localhost:4000/api/v1';
 const DEMO_TENANT_ID = '1ccc2ab5-30fa-40a4-abc6-557bc6495b8a';
 
 export default function CustomersPage() {
+  const API_BASE = getApiBaseUrl();
   const [customers, setCustomers] = useState<any[]>([]);
   const [counts, setCounts] = useState<any>({ total: 0, active: 0, expired: 0, feeDue: 0, leads: 0 });
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');

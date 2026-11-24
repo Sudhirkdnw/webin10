@@ -1,9 +1,24 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+export function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host.includes('sudhirkdnw.in')) {
+      return 'https://api.sudhirkdnw.in/api/v1';
+    }
+    if (host.includes('webin10.com')) {
+      return 'https://api.webin10.com/api/v1';
+    }
+  }
+  return 'http://localhost:4000/api/v1';
+}
 
 export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<{ success: boolean; data: T; error?: any }> {
+  const API_BASE_URL = getApiBaseUrl();
   const token = typeof window !== 'undefined' ? localStorage.getItem('webin10_admin_token') : null;
 
   const headers: Record<string, string> = {

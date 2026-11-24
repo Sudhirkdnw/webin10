@@ -27,11 +27,12 @@ import {
   Layers,
   ArrowUpRight,
 } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/api';
 
-const API_BASE = 'http://localhost:4000/api/v1';
 const DEMO_TENANT_ID = '1ccc2ab5-30fa-40a4-abc6-557bc6495b8a';
 
 export default function WhatsAppHubPage() {
+  const API_BASE = getApiBaseUrl();
   const [activeTab, setActiveTab] = useState<'campaigns' | 'automations' | 'logs' | 'connection'>('campaigns');
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<any>(null);

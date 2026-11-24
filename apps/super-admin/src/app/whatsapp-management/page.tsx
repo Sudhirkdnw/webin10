@@ -22,10 +22,10 @@ import {
   ArrowUpRight,
   TrendingUp,
 } from 'lucide-react';
-
-const API_BASE = 'http://localhost:4000/api/v1';
+import { getApiBaseUrl } from '@/lib/api';
 
 export default function SuperAdminWhatsAppManagement() {
+  const API_BASE = getApiBaseUrl();
   const [activeTab, setActiveTab] = useState<'tenants' | 'automations' | 'broadcast' | 'templates'>('tenants');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({

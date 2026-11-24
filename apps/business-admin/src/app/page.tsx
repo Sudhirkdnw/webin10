@@ -17,11 +17,12 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/api';
 
-const API_BASE = 'http://localhost:4000/api/v1';
 const DEMO_TENANT_ID = '1ccc2ab5-30fa-40a4-abc6-557bc6495b8a';
 
 export default function BusinessDashboard() {
+  const API_BASE = getApiBaseUrl();
   const [counts, setCounts] = useState({ total: 5, active: 3, expired: 1, feeDue: 2, leads: 1 });
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

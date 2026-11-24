@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Upload, X, Loader2, Image as ImageIcon, Check } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/api';
 
 interface ImageUploaderProps {
   value?: string;
@@ -24,7 +25,7 @@ export function ImageUploader({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  const API_BASE_URL = getApiBaseUrl();
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

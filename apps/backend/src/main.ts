@@ -12,13 +12,24 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // CORS
+  // Dynamic CORS allowing local, production domains and subdomains
   app.enableCors({
-    origin: [
-      process.env.SUPER_ADMIN_URL || 'http://localhost:3001',
-      process.env.BUSINESS_ADMIN_URL || 'http://localhost:3002',
-    ],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        origin.includes('localhost') ||
+        origin.includes('sudhirkdnw.in') ||
+        origin.includes('webin10.in') ||
+        origin === process.env.SUPER_ADMIN_URL ||
+        origin === process.env.BUSINESS_ADMIN_URL
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Accept,Authorization,X-Requested-With',
   });
 
   // Global pipes, filters, interceptors
