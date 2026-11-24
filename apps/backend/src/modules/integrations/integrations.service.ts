@@ -53,12 +53,28 @@ export class IntegrationsService {
       throw new NotFoundException(`Provider '${dto.provider}' is not supported`);
     }
 
+    const existing = await this.prisma.platformIntegration.findUnique({
+      where: { provider: dto.provider as any },
+    });
+
+    const existingCreds = (existing?.credentials as any) || {};
+    const cleanCredentials: Record<string, any> = { ...existingCreds };
+
+    for (const [key, value] of Object.entries(dto.credentials || {})) {
+      if (typeof value === 'string' && (value.includes('****') || value === '******')) {
+        // Preserve original unmasked secret
+        cleanCredentials[key] = existingCreds[key];
+      } else {
+        cleanCredentials[key] = value;
+      }
+    }
+
     const updated = await this.prisma.platformIntegration.upsert({
       where: { provider: dto.provider as any },
       update: {
         isEnabled: dto.isEnabled,
         isTestMode: dto.isTestMode,
-        credentials: dto.credentials,
+        credentials: cleanCredentials,
         settings: dto.settings,
         healthStatus: dto.isEnabled ? 'HEALTHY' : 'DISABLED',
         lastCheckedAt: new Date(),
@@ -69,7 +85,7 @@ export class IntegrationsService {
         name: cat.name,
         isEnabled: dto.isEnabled,
         isTestMode: dto.isTestMode,
-        credentials: dto.credentials,
+        credentials: cleanCredentials,
         settings: dto.settings,
         healthStatus: dto.isEnabled ? 'HEALTHY' : 'DISABLED',
         lastCheckedAt: new Date(),
@@ -108,8 +124,17 @@ export class IntegrationsService {
     const creds = overrideCredentials?.credentials || overrideCredentials || record?.credentials || {};
 
     if (provider === 'META_WHATSAPP') {
-      const phoneNumberId = creds.phoneNumberId || process.env.META_WHATSAPP_PHONE_NUMBER_ID;
-      const accessToken = creds.accessToken || process.env.META_WHATSAPP_ACCESS_TOKEN;
+      const dbCreds = (record?.credentials as any) || {};
+
+      let phoneNumberId = creds.phoneNumberId;
+      if (!phoneNumberId || (typeof phoneNumberId === 'string' && phoneNumberId.includes('****'))) {
+        phoneNumberId = dbCreds.phoneNumberId || process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+      }
+
+      let accessToken = creds.accessToken;
+      if (!accessToken || (typeof accessToken === 'string' && accessToken.includes('****'))) {
+        accessToken = dbCreds.accessToken || process.env.META_WHATSAPP_ACCESS_TOKEN;
+      }
 
       if (!phoneNumberId || !accessToken) {
         return {

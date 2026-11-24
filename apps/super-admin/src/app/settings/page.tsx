@@ -147,10 +147,17 @@ export default function SystemSettingsPage() {
         setProviderForms((prev) => {
           const next = { ...prev };
           for (const item of res.data) {
+            const current = prev[item.provider] || {};
+            const itemCreds = { ...(item.maskedCredentials || {}) };
+            for (const [k, v] of Object.entries(current)) {
+              if (typeof v === 'string' && !v.includes('****') && v.length > 0) {
+                itemCreds[k] = v;
+              }
+            }
             next[item.provider] = {
               isEnabled: item.isEnabled ?? false,
               isTestMode: item.isTestMode ?? true,
-              ...(item.maskedCredentials || {}),
+              ...itemCreds,
             };
           }
           return next;
@@ -317,6 +324,13 @@ export default function SystemSettingsPage() {
     const form = providerForms[provider] || {};
     const { isEnabled, isTestMode, ...credentials } = form;
 
+    const cleanCredentials = { ...credentials };
+    Object.keys(cleanCredentials).forEach((k) => {
+      if (typeof cleanCredentials[k] === 'string' && (cleanCredentials[k].includes('****') || cleanCredentials[k] === '******')) {
+        delete cleanCredentials[k];
+      }
+    });
+
     try {
       const res = await apiRequest<any>('/super-admin/integrations', {
         method: 'POST',
@@ -324,7 +338,7 @@ export default function SystemSettingsPage() {
           provider,
           isEnabled: Boolean(isEnabled),
           isTestMode: Boolean(isTestMode),
-          credentials,
+          credentials: cleanCredentials,
         }),
       });
 
@@ -345,7 +359,13 @@ export default function SystemSettingsPage() {
     setTestingProvider(provider);
     setIntegrationTestResult(null);
     try {
-      const form = providerForms[provider] || {};
+      const form = { ...(providerForms[provider] || {}) };
+      Object.keys(form).forEach((k) => {
+        if (typeof form[k] === 'string' && (form[k].includes('****') || form[k] === '******')) {
+          delete form[k];
+        }
+      });
+
       const res = await apiRequest<any>(`/super-admin/integrations/${provider}/test`, {
         method: 'POST',
         body: JSON.stringify(form),
