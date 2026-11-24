@@ -23,8 +23,9 @@ import {
   Layers,
   ArrowUpRight,
   TrendingUp,
+  Trash2,
 } from 'lucide-react';
-import { getApiBaseUrl } from '@/lib/api';
+import { getApiBaseUrl, apiRequest } from '@/lib/api';
 
 export default function SuperAdminWhatsAppManagement() {
   const API_BASE = getApiBaseUrl();
@@ -83,6 +84,33 @@ export default function SuperAdminWhatsAppManagement() {
       console.error('Failed to load admin logs:', err);
     } finally {
       setLoadingLogs(false);
+    }
+  }
+
+  const [pruning, setPruning] = useState(false);
+
+  async function handlePruneLogs() {
+    if (!confirm('Are you sure you want to purge all platform logs (WhatsApp delivery logs, audit logs, stale sessions) older than 5 days?')) {
+      return;
+    }
+    setPruning(true);
+    try {
+      const res = await apiRequest('/super-admin/maintenance/prune-logs', {
+        method: 'POST',
+        body: JSON.stringify({ days: 5 }),
+      });
+      if (res.success) {
+        alert(
+          `Log Purge Complete!\nDeleted: ${res.data.deleted.whatsAppLogs} WhatsApp logs, ${res.data.deleted.auditLogs} Audit logs, ${res.data.deleted.staleSessions} stale sessions.`
+        );
+        loadAdminLogs();
+      } else {
+        alert(res.error || 'Failed to prune logs');
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message}`);
+    } finally {
+      setPruning(false);
     }
   }
 
@@ -653,7 +681,13 @@ export default function SuperAdminWhatsAppManagement() {
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
             <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">Platform Message Logs & Delivery Reports</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 text-sm">Platform Message Logs & Delivery Reports</h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    Auto-Retention: 5 Days Active
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Real-time audit log of all messages dispatched across broadcasts, automations, and tenant campaigns.
                 </p>
@@ -696,6 +730,16 @@ export default function SuperAdminWhatsAppManagement() {
                   title="Refresh Logs"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
+                </button>
+
+                <button
+                  onClick={handlePruneLogs}
+                  disabled={pruning}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-[11px] font-semibold transition-colors disabled:opacity-50"
+                  title="Purge logs older than 5 days immediately"
+                >
+                  <Trash2 className="w-3 h-3 text-rose-600" />
+                  <span>{pruning ? 'Purging...' : 'Purge >5d Logs'}</span>
                 </button>
               </div>
             </div>

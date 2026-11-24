@@ -18,6 +18,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { EmailTemplatesModule } from './modules/email-templates/email-templates.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
+import { LogRetentionModule } from './modules/log-retention/log-retention.module';
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
     SettingsModule,
     EmailTemplatesModule,
     UploadsModule,
-    WhatsAppModule,    
+    WhatsAppModule,
+    LogRetentionModule,
   ],
 })
 export class AppModule {}
