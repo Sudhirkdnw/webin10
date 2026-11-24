@@ -23,6 +23,7 @@ import {
   ChevronRight,
   ShieldCheck,
   CheckCheck,
+  XCircle,
   Calendar,
   Layers,
   ArrowUpRight,
@@ -474,10 +475,29 @@ export default function WhatsAppHubPage() {
                           {log.content}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                            <CheckCheck className="w-3 h-3 text-emerald-600" />
-                            {log.status}
-                          </span>
+                          {log.status === 'DELIVERED' || log.status === 'READ' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              <CheckCheck className="w-3 h-3 text-emerald-600" />
+                              DELIVERED
+                            </span>
+                          ) : log.status === 'FAILED' ? (
+                            <div className="flex flex-col items-center">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                                <XCircle className="w-3 h-3 text-rose-600" />
+                                FAILED
+                              </span>
+                              {log.errorMessage && (
+                                <span className="text-[10px] text-rose-600 max-w-xs truncate mt-0.5" title={log.errorMessage}>
+                                  {log.errorMessage}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                              <Clock className="w-3 h-3 text-blue-600" />
+                              {log.status}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right text-slate-400 font-mono text-[11px]">
                           {new Date(log.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -10,6 +10,8 @@ import {
   Users,
   CreditCard,
   CheckCircle2,
+  XCircle,
+  Loader2,
   AlertTriangle,
   Ban,
   Plus,
@@ -26,7 +28,7 @@ import { getApiBaseUrl } from '@/lib/api';
 
 export default function SuperAdminWhatsAppManagement() {
   const API_BASE = getApiBaseUrl();
-  const [activeTab, setActiveTab] = useState<'tenants' | 'automations' | 'broadcast' | 'templates'>('tenants');
+  const [activeTab, setActiveTab] = useState<'tenants' | 'automations' | 'broadcast' | 'templates' | 'logs'>('tenants');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({
     totalTenants: 0,
@@ -38,6 +40,13 @@ export default function SuperAdminWhatsAppManagement() {
   const [tenants, setTenants] = useState<any[]>([]);
   const [automations, setAutomations] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
+
+  // Logs State
+  const [adminLogs, setAdminLogs] = useState<any[]>([]);
+  const [logStatusFilter, setLogStatusFilter] = useState('ALL');
+  const [logSearchQuery, setLogSearchQuery] = useState('');
+  const [totalLogsCount, setTotalLogsCount] = useState(0);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Credits Modal State
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
@@ -53,7 +62,29 @@ export default function SuperAdminWhatsAppManagement() {
 
   useEffect(() => {
     loadAllData();
+    loadAdminLogs();
   }, []);
+
+  async function loadAdminLogs(status = logStatusFilter, search = logSearchQuery) {
+    setLoadingLogs(true);
+    try {
+      const params = new URLSearchParams();
+      if (status && status !== 'ALL') params.append('status', status);
+      if (search) params.append('search', search);
+      params.append('limit', '50');
+
+      const res = await fetch(`${API_BASE}/whatsapp/admin/logs?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setAdminLogs(data.data.logs || []);
+        setTotalLogsCount(data.data.total || 0);
+      }
+    } catch (err) {
+      console.error('Failed to load admin logs:', err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }
 
   async function loadAllData() {
     setLoading(true);
@@ -295,6 +326,7 @@ export default function SuperAdminWhatsAppManagement() {
             { id: 'automations', label: 'Platform Automations (To Businesses)', icon: Zap, count: automations.length },
             { id: 'broadcast', label: 'Broadcast to All Businesses', icon: Send },
             { id: 'templates', label: 'Templates Catalogue', icon: Layers, count: templates.length },
+            { id: 'logs', label: 'Delivery Logs & Audit', icon: MessageSquare, count: totalLogsCount },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -613,6 +645,136 @@ export default function SuperAdminWhatsAppManagement() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* TAB 5: PLATFORM MESSAGE LOGS & FAILURE AUDIT */}
+        {activeTab === 'logs' && (
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Platform Message Logs & Delivery Reports</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Real-time audit log of all messages dispatched across broadcasts, automations, and tenant campaigns.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Search */}
+                <input
+                  type="text"
+                  placeholder="Search phone or name..."
+                  value={logSearchQuery}
+                  onChange={(e) => {
+                    setLogSearchQuery(e.target.value);
+                    loadAdminLogs(logStatusFilter, e.target.value);
+                  }}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600"
+                />
+
+                {/* Status Pills */}
+                {['ALL', 'DELIVERED', 'FAILED', 'SENT'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => {
+                      setLogStatusFilter(st);
+                      loadAdminLogs(st, logSearchQuery);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
+                      logStatusFilter === st
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => loadAdminLogs()}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  title="Refresh Logs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {loadingLogs ? (
+              <div className="p-12 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                Loading message audit logs...
+              </div>
+            ) : adminLogs.length === 0 ? (
+              <div className="p-12 text-center text-xs text-slate-500">
+                No message logs found matching criteria.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                      <th className="py-3 px-4">Recipient</th>
+                      <th className="py-3 px-4">Sender / Workspace</th>
+                      <th className="py-3 px-4">Message Content Preview</th>
+                      <th className="py-3 px-4 text-center">Status & Delivery Report</th>
+                      <th className="py-3 px-4 text-right">Sent Time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {adminLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-4">
+                          <p className="font-bold text-slate-900">{log.recipientName}</p>
+                          <p className="text-[11px] font-mono text-slate-500">{log.recipientPhone}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                            {log.tenantName}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 max-w-sm truncate text-slate-600" title={log.content}>
+                          {log.content}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {log.status === 'DELIVERED' || log.status === 'READ' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              DELIVERED
+                            </span>
+                          ) : log.status === 'FAILED' ? (
+                            <div className="flex flex-col items-center">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                                <XCircle className="w-3 h-3 text-rose-600" />
+                                FAILED
+                              </span>
+                              {log.errorMessage && (
+                                <span className="text-[10px] text-rose-600 max-w-xs truncate mt-0.5 font-normal" title={log.errorMessage}>
+                                  {log.errorMessage}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                              <Clock className="w-3 h-3 text-blue-600" />
+                              {log.status}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                          {new Date(log.sentAt).toLocaleString([], {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

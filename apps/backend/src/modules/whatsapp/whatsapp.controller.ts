@@ -215,6 +215,18 @@ export class WhatsAppController {
     return this.whatsAppService.sendPlatformBroadcast(body);
   }
 
+  @Get('admin/logs')
+  @ApiOperation({ summary: 'Super Admin: List all platform message logs with delivery and failure status' })
+  async listAdminLogs(
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('tenantId') tenantId?: string,
+    @Query('limit') limit?: number,
+    @Query('page') page?: number,
+  ) {
+    return this.whatsAppService.listAdminLogs({ status, search, tenantId, limit, page });
+  }
+
   @Get('admin/stats')
   @ApiOperation({ summary: 'Super Admin: Get Platform-wide WhatsApp statistics' })
   async getPlatformStats() {

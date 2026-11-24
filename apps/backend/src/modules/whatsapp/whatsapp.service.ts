@@ -304,38 +304,82 @@ export class WhatsAppService {
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     const businessName = tenant?.name || 'Webin10 Partner';
 
+    // Resolve Meta Cloud API credentials
+    const integration = await this.prisma.platformIntegration.findUnique({
+      where: { provider: 'META_WHATSAPP' as any },
+    });
+    const creds = (integration?.credentials as any) || {};
+    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
+    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+
     for (const recipient of recipients) {
-      try {
-        const fullName = `${recipient.firstName} ${recipient.lastName || ''}`.trim();
-        const content = template.bodyText
-          .replace('{{1}}', recipient.firstName || 'Member')
-          .replace('{{2}}', businessName)
-          .replace('{{3}}', recipient.expiryDate ? new Date(recipient.expiryDate).toLocaleDateString() : 'Active')
-          .replace('{{4}}', recipient.pendingAmount ? `₹${recipient.pendingAmount}` : 'None');
+      const fullName = `${recipient.firstName} ${recipient.lastName || ''}`.trim();
+      const content = template.bodyText
+        .replace('{{1}}', recipient.firstName || 'Member')
+        .replace('{{2}}', businessName)
+        .replace('{{3}}', recipient.expiryDate ? new Date(recipient.expiryDate).toLocaleDateString() : 'Active')
+        .replace('{{4}}', recipient.pendingAmount ? `₹${recipient.pendingAmount}` : 'None');
 
-        await this.prisma.whatsAppMessageLog.create({
-          data: {
-            tenantId,
-            campaignId,
-            customerId: recipient.id,
-            recipientPhone: recipient.phone,
-            recipientName: fullName,
-            direction: 'OUTBOUND',
-            status: 'DELIVERED', // Simulated delivered status for immediate dispatch
-            content,
-            templateCode: template.code,
-            metaMessageId: `wamid_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-            sentAt: new Date(),
-            deliveredAt: new Date(),
-          },
-        });
+      let cleanPhone = (recipient.phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('0') && cleanPhone.length === 11) cleanPhone = cleanPhone.slice(1);
+      if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
 
-        sent++;
-        delivered++;
-      } catch (err: any) {
+      let metaMessageId = `wamid_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      let status: 'DELIVERED' | 'FAILED' = 'FAILED';
+      let errorMessage: string | null = null;
+
+      if (!phoneNumberId || !accessToken) {
+        errorMessage = 'Meta WhatsApp credentials not configured on platform';
         failed++;
-        this.logger.error(`Error sending message to ${recipient.phone}: ${err.message}`);
+      } else {
+        try {
+          const res = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: cleanPhone,
+              type: 'text',
+              text: { preview_url: false, body: content },
+            }),
+          });
+          const metaJson = await res.json();
+          if (res.ok && metaJson.messages?.[0]?.id) {
+            metaMessageId = metaJson.messages[0].id;
+            status = 'DELIVERED';
+            sent++;
+            delivered++;
+          } else {
+            errorMessage = metaJson.error?.message || 'Meta API rejected message';
+            failed++;
+          }
+        } catch (err: any) {
+          errorMessage = err.message;
+          failed++;
+        }
       }
+
+      await this.prisma.whatsAppMessageLog.create({
+        data: {
+          tenantId,
+          campaignId,
+          customerId: recipient.id,
+          recipientPhone: recipient.phone,
+          recipientName: fullName,
+          direction: 'OUTBOUND',
+          status: status as any,
+          content,
+          templateCode: template.code,
+          metaMessageId,
+          errorMessage,
+          sentAt: new Date(),
+          deliveredAt: status === 'DELIVERED' ? new Date() : undefined,
+        },
+      });
     }
 
     // Deduct credits from account
@@ -399,10 +443,14 @@ export class WhatsAppService {
 
     let metaMessageId = `wamid_${Date.now()}`;
     let deliveryStatus = 'SENT';
+    let errorMessage: string | null = null;
 
     if (phoneNumberId && accessToken) {
       try {
-        const cleanPhone = params.recipientPhone.replace(/[^0-9]/g, '');
+        let cleanPhone = params.recipientPhone.replace(/[^0-9]/g, '');
+        if (cleanPhone.startsWith('0') && cleanPhone.length === 11) cleanPhone = cleanPhone.slice(1);
+        if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
+
         const metaRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
           method: 'POST',
           headers: {
@@ -418,16 +466,23 @@ export class WhatsAppService {
           }),
         });
         const metaJson = await metaRes.json();
-        if (metaJson.messages?.[0]?.id) {
+        if (metaRes.ok && metaJson.messages?.[0]?.id) {
           metaMessageId = metaJson.messages[0].id;
           deliveryStatus = 'DELIVERED';
           this.logger.log(`Meta WhatsApp dispatched: ${metaMessageId} to ${cleanPhone}`);
         } else {
-          this.logger.warn(`Meta API response: ${JSON.stringify(metaJson)}`);
+          deliveryStatus = 'FAILED';
+          errorMessage = metaJson.error?.message || 'Meta API rejected message';
+          this.logger.warn(`Meta API error: ${JSON.stringify(metaJson)}`);
         }
       } catch (err: any) {
+        deliveryStatus = 'FAILED';
+        errorMessage = err.message;
         this.logger.error(`Failed to dispatch Meta WhatsApp: ${err.message}`);
       }
+    } else {
+      deliveryStatus = 'FAILED';
+      errorMessage = 'Meta WhatsApp credentials (Phone Number ID / Access Token) not configured on platform';
     }
 
     const log = await this.prisma.whatsAppMessageLog.create({
@@ -441,6 +496,7 @@ export class WhatsAppService {
         content,
         templateCode: params.templateCode,
         metaMessageId,
+        errorMessage,
         sentAt: new Date(),
         deliveredAt: deliveryStatus === 'DELIVERED' ? new Date() : undefined,
       },
@@ -525,11 +581,15 @@ export class WhatsAppService {
             if (value?.statuses) {
               for (const status of value.statuses) {
                 this.logger.log(`Status update: ${status.id} -> ${status.status}`);
+                const isFailed = status.status === 'failed';
+                const errorReason = status.errors?.[0]?.message || status.errors?.[0]?.title || null;
+
                 // Update message log if found
                 await this.prisma.whatsAppMessageLog.updateMany({
                   where: { metaMessageId: status.id },
                   data: {
                     status: (status.status.toUpperCase() as any) || 'DELIVERED',
+                    errorMessage: isFailed ? errorReason : undefined,
                     deliveredAt: status.status === 'delivered' ? new Date() : undefined,
                     readAt: status.status === 'read' ? new Date() : undefined,
                   },
@@ -785,6 +845,7 @@ export class WhatsAppService {
 
         let metaMessageId = `wamid_platform_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         let deliveryStatus = 'SENT';
+        let errorMessage: string | null = null;
 
         try {
           const res = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
@@ -808,10 +869,12 @@ export class WhatsAppService {
             deliveryStatus = 'DELIVERED';
             sent++;
           } else {
+            errorMessage = metaJson.error?.message || 'Meta API rejected message';
             this.logger.error(`Meta broadcast failed for ${cleanPhone}: ${JSON.stringify(metaJson)}`);
             deliveryStatus = 'FAILED';
           }
         } catch (err: any) {
+          errorMessage = err.message;
           this.logger.error(`Network error sending WhatsApp to ${cleanPhone}: ${err.message}`);
           deliveryStatus = 'FAILED';
         }
@@ -826,6 +889,7 @@ export class WhatsAppService {
             content,
             templateCode: template.code,
             metaMessageId,
+            errorMessage,
             sentAt: new Date(),
             deliveredAt: deliveryStatus === 'DELIVERED' ? new Date() : undefined,
           },
@@ -838,6 +902,72 @@ export class WhatsAppService {
       broadcastName: dto.name,
       totalTenantsTargeted: tenants.length,
       sentCount: sent,
+    };
+  }
+
+  /**
+   * SUPER ADMIN: List All Platform Message Logs with Status and Error Reasons
+   */
+  async listAdminLogs(query?: {
+    status?: string;
+    search?: string;
+    tenantId?: string;
+    limit?: number;
+    page?: number;
+  }) {
+    const where: any = {};
+    if (query?.status && query.status !== 'ALL') {
+      where.status = query.status as any;
+    }
+    if (query?.tenantId) {
+      where.tenantId = query.tenantId;
+    }
+    if (query?.search) {
+      where.OR = [
+        { recipientPhone: { contains: query.search } },
+        { recipientName: { contains: query.search, mode: 'insensitive' } },
+        { content: { contains: query.search, mode: 'insensitive' } },
+        { templateCode: { contains: query.search, mode: 'insensitive' } },
+        { errorMessage: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const take = query?.limit ? Number(query.limit) : 50;
+    const skip = query?.page ? (Number(query.page) - 1) * take : 0;
+
+    const [total, logs] = await Promise.all([
+      this.prisma.whatsAppMessageLog.count({ where }),
+      this.prisma.whatsAppMessageLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+        include: {
+          tenant: { select: { id: true, name: true, slug: true } },
+          customer: { select: { id: true, firstName: true, lastName: true, phone: true } },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      limit: take,
+      logs: logs.map((log) => ({
+        id: log.id,
+        tenantId: log.tenantId,
+        tenantName: log.tenant ? log.tenant.name : 'Super Admin Platform Broadcast',
+        recipientPhone: log.recipientPhone,
+        recipientName: log.recipientName || 'Member',
+        direction: log.direction,
+        status: log.status,
+        content: log.content,
+        templateCode: log.templateCode,
+        metaMessageId: log.metaMessageId,
+        errorMessage: log.errorMessage,
+        sentAt: log.sentAt,
+        deliveredAt: log.deliveredAt,
+        readAt: log.readAt,
+      })),
     };
   }
 
