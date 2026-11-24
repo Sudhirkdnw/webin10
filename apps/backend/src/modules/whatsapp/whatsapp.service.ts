@@ -303,14 +303,24 @@ export class WhatsAppService {
 
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     const businessName = tenant?.name || 'Webin10 Partner';
+    const account = await this.getAccount(tenantId);
 
-    // Resolve Meta Cloud API credentials
-    const integration = await this.prisma.platformIntegration.findUnique({
-      where: { provider: 'META_WHATSAPP' as any },
-    });
-    const creds = (integration?.credentials as any) || {};
-    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
-    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+    // Resolve credentials: use business's own dedicated WhatsApp if connected, otherwise Webin10 platform
+    let phoneNumberId: string | null = null;
+    let accessToken: string | null = null;
+
+    if (account.mode === 'CUSTOM_TOKEN' && account.phoneNumberId && account.accessToken) {
+      phoneNumberId = account.phoneNumberId;
+      accessToken = account.accessToken;
+      this.logger.log(`Dispatching campaign from tenant ${tenantId} dedicated WhatsApp: ${account.displayPhoneNumber || phoneNumberId}`);
+    } else {
+      const integration = await this.prisma.platformIntegration.findUnique({
+        where: { provider: 'META_WHATSAPP' as any },
+      });
+      const creds = (integration?.credentials as any) || {};
+      phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
+      accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+    }
 
     for (const recipient of recipients) {
       const fullName = `${recipient.firstName} ${recipient.lastName || ''}`.trim();
@@ -433,13 +443,21 @@ export class WhatsAppService {
       });
     }
 
-    // Resolve Meta Cloud API credentials (from .env or database platform integration)
-    const integration = await this.prisma.platformIntegration.findUnique({
-      where: { provider: 'META_WHATSAPP' as any },
-    });
-    const creds = (integration?.credentials as any) || {};
-    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
-    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+    // Resolve credentials: use business's own dedicated WhatsApp if connected, otherwise Webin10 platform
+    let phoneNumberId: string | null = null;
+    let accessToken: string | null = null;
+
+    if (account.mode === 'CUSTOM_TOKEN' && account.phoneNumberId && account.accessToken) {
+      phoneNumberId = account.phoneNumberId;
+      accessToken = account.accessToken;
+    } else {
+      const integration = await this.prisma.platformIntegration.findUnique({
+        where: { provider: 'META_WHATSAPP' as any },
+      });
+      const creds = (integration?.credentials as any) || {};
+      phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
+      accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+    }
 
     let metaMessageId = `wamid_${Date.now()}`;
     let deliveryStatus = 'SENT';
@@ -809,7 +827,7 @@ export class WhatsAppService {
       include: { profile: true },
     });
 
-    // Resolve Meta Cloud API credentials
+    // Resolve Meta Cloud API platform credentials (Super Admin platform broadcast)
     const integration = await this.prisma.platformIntegration.findUnique({
       where: { provider: 'META_WHATSAPP' as any },
     });

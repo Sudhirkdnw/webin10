@@ -51,6 +51,14 @@ export default function WhatsAppHubPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Sender Settings Form State
+  const [senderMode, setSenderMode] = useState<'SHARED_PLATFORM' | 'CUSTOM_TOKEN'>('SHARED_PLATFORM');
+  const [dedicatedPhoneId, setDedicatedPhoneId] = useState('');
+  const [dedicatedWabaId, setDedicatedWabaId] = useState('');
+  const [dedicatedToken, setDedicatedToken] = useState('');
+  const [dedicatedDisplayPhone, setDedicatedDisplayPhone] = useState('');
+  const [savingSenderConfig, setSavingSenderConfig] = useState(false);
+
   useEffect(() => {
     loadAllData();
   }, []);
@@ -76,7 +84,13 @@ export default function WhatsAppHubPage() {
         custRes.json(),
       ]);
 
-      if (accData.success) setAccount(accData.data);
+      if (accData.success && accData.data) {
+        setAccount(accData.data);
+        setSenderMode(accData.data.mode || 'SHARED_PLATFORM');
+        setDedicatedPhoneId(accData.data.phoneNumberId || '');
+        setDedicatedWabaId(accData.data.wabaId || '');
+        setDedicatedDisplayPhone(accData.data.displayPhoneNumber || '');
+      }
       if (tmplData.success) setTemplates(tmplData.data);
       if (campData.success) setCampaigns(campData.data);
       if (autoData.success) setAutomations(autoData.data);
@@ -145,6 +159,41 @@ export default function WhatsAppHubPage() {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleSaveSenderSettings(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingSenderConfig(true);
+    setStatusMsg(null);
+    try {
+      const res = await fetch(`${API_BASE}/whatsapp/accounts/${DEMO_TENANT_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: senderMode,
+          phoneNumberId: dedicatedPhoneId,
+          wabaId: dedicatedWabaId,
+          accessToken: dedicatedToken || account?.accessToken,
+          displayPhoneNumber: dedicatedDisplayPhone,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatusMsg({
+          type: 'success',
+          text: senderMode === 'CUSTOM_TOKEN'
+            ? 'Dedicated WhatsApp connected! Outgoing messages to your clients will now go from your own WhatsApp number.'
+            : 'Switched to Webin10 Verified Shared Platform Gateway.',
+        });
+        loadAllData();
+      } else {
+        setStatusMsg({ type: 'error', text: data.error || 'Failed to update sender settings' });
+      }
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Network error' });
+    } finally {
+      setSavingSenderConfig(false);
     }
   }
 
@@ -513,51 +562,149 @@ export default function WhatsAppHubPage() {
 
         {/* TAB 4: SENDER SETUP */}
         {activeTab === 'connection' && (
-          <div className="max-w-2xl bg-white border border-slate-200 rounded-2xl p-6 space-y-6">
+          <form onSubmit={handleSaveSenderSettings} className="max-w-2xl bg-white border border-slate-200 rounded-2xl p-6 space-y-6">
             <div>
               <h3 className="font-bold text-slate-900 text-base">WhatsApp Sender Settings</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Choose how your business sends messages to clients.
+                Choose whether your business sends messages from your own dedicated WhatsApp number or Webin10 shared gateway.
               </p>
             </div>
 
             <div className="space-y-4">
-              <div className="border border-emerald-500/40 bg-emerald-50/30 rounded-xl p-4 flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="senderMode"
-                  checked={account?.mode === 'SHARED_PLATFORM'}
-                  readOnly
-                  className="mt-1 text-emerald-600"
-                />
-                <div className="flex-1">
-                  <span className="font-bold text-slate-900 text-xs block">Webin10 Verified Platform Sender (Recommended)</span>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Zero technical setup required. Messages are sent immediately with your business name header. You only need credit recharge.
-                  </p>
-                  <span className="inline-block mt-2 text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                    Active & Ready to Dispatch
-                  </span>
+              {/* Option A: Dedicated Business WhatsApp */}
+              <div
+                onClick={() => setSenderMode('CUSTOM_TOKEN')}
+                className={`border rounded-xl p-4 cursor-pointer transition-colors ${
+                  senderMode === 'CUSTOM_TOKEN'
+                    ? 'border-indigo-500 bg-indigo-50/20 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="senderMode"
+                    checked={senderMode === 'CUSTOM_TOKEN'}
+                    onChange={() => setSenderMode('CUSTOM_TOKEN')}
+                    className="mt-1 text-indigo-600"
+                  />
+                  <div className="flex-1">
+                    <span className="font-bold text-slate-900 text-xs block">
+                      Connect Your Own WhatsApp Business Number (Recommended for Brand Identity)
+                    </span>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Messages to your gym/business members will be delivered directly from your own WhatsApp number with your business name & logo.
+                    </p>
+                  </div>
                 </div>
+
+                {senderMode === 'CUSTOM_TOKEN' && (
+                  <div className="mt-4 pt-4 border-t border-indigo-100 space-y-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Phone Number ID:*
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={dedicatedPhoneId}
+                          onChange={(e) => setDedicatedPhoneId(e.target.value)}
+                          placeholder="e.g. 1450579514809953"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Display Phone Number:
+                        </label>
+                        <input
+                          type="text"
+                          value={dedicatedDisplayPhone}
+                          onChange={(e) => setDedicatedDisplayPhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          WhatsApp Business Account ID (WABA ID):*
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={dedicatedWabaId}
+                          onChange={(e) => setDedicatedWabaId(e.target.value)}
+                          placeholder="e.g. 4521019634837823"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          System User Access Token:*
+                        </label>
+                        <input
+                          type="password"
+                          value={dedicatedToken}
+                          onChange={(e) => setDedicatedToken(e.target.value)}
+                          placeholder={account?.accessToken ? '••••••••••••••••' : 'EAAG...'}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="border border-slate-200 rounded-xl p-4 flex items-start gap-3 opacity-80">
-                <input type="radio" name="senderMode" disabled className="mt-1" />
-                <div>
-                  <span className="font-bold text-slate-900 text-xs block">Meta Embedded Signup (Own Phone Number)</span>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Connect your own dedicated SIM / phone number directly via Facebook popup.
-                  </p>
-                  <button
-                    disabled
-                    className="mt-2 px-3 py-1 bg-slate-100 text-slate-400 rounded-lg text-xs font-semibold cursor-not-allowed"
-                  >
-                    Connect with Facebook
-                  </button>
+              {/* Option B: Webin10 Shared Platform Gateway */}
+              <div
+                onClick={() => setSenderMode('SHARED_PLATFORM')}
+                className={`border rounded-xl p-4 cursor-pointer transition-colors ${
+                  senderMode === 'SHARED_PLATFORM'
+                    ? 'border-emerald-500 bg-emerald-50/20 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="senderMode"
+                    checked={senderMode === 'SHARED_PLATFORM'}
+                    onChange={() => setSenderMode('SHARED_PLATFORM')}
+                    className="mt-1 text-emerald-600"
+                  />
+                  <div className="flex-1">
+                    <span className="font-bold text-slate-900 text-xs block">
+                      Webin10 Verified Shared Platform Gateway
+                    </span>
+                    <p className="text-xs text-slate-600 mt-1">
+                      No Meta setup needed for your business. Messages are dispatched via Webin10 official platform verified sender using prepaid credits.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+
+            <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">
+                Current Active: <strong>{account?.mode === 'CUSTOM_TOKEN' ? 'Dedicated Own Number' : 'Webin10 Shared Platform'}</strong>
+              </span>
+
+              <button
+                type="submit"
+                disabled={savingSenderConfig}
+                className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-xs transition-colors flex items-center gap-2"
+              >
+                {savingSenderConfig ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+                <span>Save Sender Configuration</span>
+              </button>
+            </div>
+          </form>
         )}
 
         {/* CREATE CAMPAIGN MODAL */}
