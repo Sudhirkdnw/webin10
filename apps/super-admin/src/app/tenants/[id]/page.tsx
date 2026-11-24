@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
 import Link from 'next/link';
@@ -18,9 +19,9 @@ import {
   Plus,
 } from 'lucide-react';
 
-export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const tenantId = resolvedParams.id;
+export default function TenantDetailPage() {
+  const routeParams = useParams();
+  const tenantId = (routeParams?.id as string) || '';
 
   const [tenant, setTenant] = useState<any>(null);
   const [quota, setQuota] = useState<any>(null);
