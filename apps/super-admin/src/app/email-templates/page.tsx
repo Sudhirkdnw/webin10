@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
 import {
   Mail,
@@ -13,9 +14,8 @@ import {
   AlertCircle,
   Loader2,
   Code,
-  Sparkles,
   Search,
-  ExternalLink,
+  Check,
 } from 'lucide-react';
 
 interface EmailTemplate {
@@ -93,7 +93,7 @@ export default function EmailTemplatesPage() {
       slug: '',
       category: 'ONBOARDING',
       subject: '',
-      bodyHtml: '<div style="font-family: Arial, sans-serif; padding: 20px;">\n  <h2>Hello {{user_name}},</h2>\n  <p>Welcome to {{app_name}}.</p>\n</div>',
+      bodyHtml: '<div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">\n  <h2 style="color: #4F46E5;">Hello {{user_name}},</h2>\n  <p>Welcome to <strong>{{app_name}}</strong>!</p>\n</div>',
       bodyText: '',
       variables: ['app_name', 'user_name'],
       isActive: true,
@@ -123,7 +123,6 @@ export default function EmailTemplatesPage() {
 
   function handlePreviewTab() {
     setEditorTab('preview');
-    // Simple client-side replacement for instant feedback
     const sample: Record<string, string> = {
       app_name: 'Webin10',
       business_name: 'Apex Fitness Studio',
@@ -256,417 +255,419 @@ export default function EmailTemplatesPage() {
   });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100">Transactional Email Templates</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Manage HTML email notifications, variables, and dispatch test copies via Google / Custom SMTP.
-          </p>
-        </div>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-4 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-emerald-500/20"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Email Template</span>
-        </button>
-      </div>
-
-      {statusMsg && (
-        <div
-          className={`p-4 rounded-xl text-sm flex items-center justify-between border ${
-            statusMsg.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {statusMsg.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 shrink-0" />
-            )}
-            <span>{statusMsg.text}</span>
+    <AdminShell>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Transactional Email Templates</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Manage HTML email notifications, dynamic variables, and dispatch live test copies via Google / Custom SMTP
+            </p>
           </div>
-          <button onClick={() => setStatusMsg(null)} className="text-xs hover:underline">
-            Dismiss
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors shadow-sm self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Email Template</span>
           </button>
         </div>
-      )}
 
-      {/* Filter / Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search templates by name, slug or subject..."
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5 bg-slate-900 border border-slate-800 p-1 rounded-xl">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                selectedCategory === cat
-                  ? 'bg-emerald-500 text-slate-950'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {cat}
+        {statusMsg && (
+          <div
+            className={`p-4 rounded-xl text-sm flex items-center justify-between border ${
+              statusMsg.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {statusMsg.type === 'success' ? (
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span className="font-medium">{statusMsg.text}</span>
+            </div>
+            <button onClick={() => setStatusMsg(null)} className="text-xs hover:underline font-semibold">
+              Dismiss
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Templates Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        {loading ? (
-          <div className="flex items-center justify-center p-12">
-            <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-          </div>
-        ) : filteredTemplates.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-sm">
-            No email templates match the current filter.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-950/40">
-                  <th className="py-3 px-4">Template Name</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Subject Line</th>
-                  <th className="py-3 px-4">Variables</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-sm">
-                {filteredTemplates.map((tpl) => (
-                  <tr key={tpl.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-slate-200">{tpl.name}</div>
-                      <div className="font-mono text-[11px] text-slate-500">{tpl.slug}</div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                        {tpl.category}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-300 max-w-xs truncate">
-                      {tpl.subject}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-wrap gap-1 max-w-xs">
-                        {(tpl.variables || []).slice(0, 3).map((v) => (
-                          <span
-                            key={v}
-                            className="bg-slate-950 px-1.5 py-0.5 rounded text-[10px] text-slate-400 font-mono border border-slate-800"
-                          >
-                            &#123;&#123;{v}&#125;&#125;
-                          </span>
-                        ))}
-                        {(tpl.variables || []).length > 3 && (
-                          <span className="text-[10px] text-slate-500">
-                            +{tpl.variables.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {tpl.isActive ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Inactive
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openTestModal(tpl)}
-                          title="Send Live Test Email via SMTP"
-                          className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors"
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(tpl)}
-                          title="Edit Template & Visual Preview"
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTemplate(tpl)}
-                          title="Delete Template"
-                          className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
-      </div>
 
-      {/* Edit / Create Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-lg font-bold text-slate-100">
-                  {isEditing ? `Edit Template: ${formData.name}` : 'Create New Email Template'}
-                </h3>
-              </div>
+        {/* Filter / Search Bar */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search templates by name, slug or subject line..."
+              className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 shadow-sm"
+            />
+          </div>
+          <div className="flex flex-wrap gap-1 bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
+            {categories.map((cat) => (
               <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-500 hover:text-slate-300 text-xl font-bold"
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  selectedCategory === cat
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
               >
-                &times;
+                {cat}
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Templates Table Card */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
             </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 text-sm">
+              No email templates match the current filter.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">
+                    <th className="py-3.5 px-6">Template Name</th>
+                    <th className="py-3.5 px-6">Category</th>
+                    <th className="py-3.5 px-6">Subject Line</th>
+                    <th className="py-3.5 px-6">Variables</th>
+                    <th className="py-3.5 px-6">Status</th>
+                    <th className="py-3.5 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredTemplates.map((tpl) => (
+                    <tr key={tpl.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="font-semibold text-slate-900">{tpl.name}</div>
+                        <div className="font-mono text-xs text-indigo-600">{tpl.slug}</div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {tpl.category}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-slate-700 max-w-xs truncate">
+                        {tpl.subject}
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {(tpl.variables || []).slice(0, 3).map((v) => (
+                            <span
+                              key={v}
+                              className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] text-slate-600 font-mono border border-slate-200"
+                            >
+                              &#123;&#123;{v}&#125;&#125;
+                            </span>
+                          ))}
+                          {(tpl.variables || []).length > 3 && (
+                            <span className="text-[11px] text-slate-400">
+                              +{tpl.variables.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        {tpl.isActive ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openTestModal(tpl)}
+                            title="Send Live Test Email via SMTP"
+                            className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors border border-indigo-100"
+                          >
+                            <Send className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(tpl)}
+                            title="Edit Template & Visual Preview"
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-slate-200"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTemplate(tpl)}
+                            title="Delete Template"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSaveTemplate} className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Template Name:*
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Welcome & Activation"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-                  />
+        {/* Edit / Create Modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <Mail className="w-5 h-5 text-indigo-600" />
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {isEditing ? `Edit Template: ${formData.name}` : 'Create New Email Template'}
+                  </h3>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Slug identifier:*
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    disabled={isEditing}
-                    value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    placeholder="welcome_email"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono disabled:opacity-60"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Category:
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="ONBOARDING">ONBOARDING</option>
-                    <option value="SUBSCRIPTION">SUBSCRIPTION</option>
-                    <option value="AUTH">AUTH</option>
-                    <option value="BILLING">BILLING</option>
-                    <option value="SYSTEM">SYSTEM</option>
-                  </select>
-                </div>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 text-2xl font-bold"
+                >
+                  &times;
+                </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Subject Line:* <span className="text-slate-500 font-normal">(Variables supported: &#123;&#123;app_name&#125;&#125;, etc.)</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  placeholder="Welcome to {{app_name}}!"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Dynamic Variables: <span className="text-slate-500 font-normal">(comma-separated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={variablesInput}
-                  onChange={(e) => setVariablesInput(e.target.value)}
-                  placeholder="app_name, user_name, login_url, expiry_date"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                />
-              </div>
-
-              {/* Editor Tabs: HTML Source vs Live Preview */}
-              <div className="pt-2">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditorTab('editor')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                        editorTab === 'editor'
-                          ? 'bg-slate-800 text-emerald-400'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Code className="w-3.5 h-3.5" /> HTML Source Editor
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePreviewTab}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                        editorTab === 'preview'
-                          ? 'bg-slate-800 text-emerald-400'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Eye className="w-3.5 h-3.5" /> Visual Live Preview
-                    </button>
-                  </div>
-                  <span className="text-[11px] text-slate-500">Renders responsive HTML</span>
-                </div>
-
-                {editorTab === 'editor' ? (
-                  <div className="mt-2">
-                    <textarea
-                      rows={12}
+              {/* Modal Body */}
+              <form onSubmit={handleSaveTemplate} className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Template Name:*
+                    </label>
+                    <input
+                      type="text"
                       required
-                      value={formData.bodyHtml}
-                      onChange={(e) => setFormData({ ...formData, bodyHtml: e.target.value })}
-                      placeholder="<div style='...'>...</div>"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono leading-relaxed"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Welcome & Activation"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
-                ) : (
-                  <div className="mt-2 p-4 bg-white rounded-lg min-h-[300px] border border-slate-300 text-slate-900 overflow-auto">
-                    <div dangerouslySetInnerHTML={{ __html: renderedPreview }} />
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Slug Identifier:*
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      disabled={isEditing}
+                      value={formData.slug}
+                      onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                      placeholder="welcome_email"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono disabled:bg-slate-50 disabled:text-slate-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Category:
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="ONBOARDING">ONBOARDING</option>
+                      <option value="SUBSCRIPTION">SUBSCRIPTION</option>
+                      <option value="AUTH">AUTH</option>
+                      <option value="BILLING">BILLING</option>
+                      <option value="SYSTEM">SYSTEM</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Subject Line:* <span className="text-slate-400 font-normal">(Variables: &#123;&#123;app_name&#125;&#125;, etc.)</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.subject}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    placeholder="Welcome to {{app_name}}!"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Dynamic Variables: <span className="text-slate-400 font-normal">(comma-separated)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={variablesInput}
+                    onChange={(e) => setVariablesInput(e.target.value)}
+                    placeholder="app_name, user_name, login_url, expiry_date"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+
+                {/* Editor Tabs: HTML Source vs Live Preview */}
+                <div className="pt-2">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditorTab('editor')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                          editorTab === 'editor'
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Code className="w-3.5 h-3.5" /> HTML Source Editor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePreviewTab}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                          editorTab === 'preview'
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Eye className="w-3.5 h-3.5" /> Visual Live Preview
+                      </button>
+                    </div>
+                    <span className="text-xs text-slate-400">Renders HTML preview with sample data</span>
+                  </div>
+
+                  {editorTab === 'editor' ? (
+                    <div className="mt-2">
+                      <textarea
+                        rows={12}
+                        required
+                        value={formData.bodyHtml}
+                        onChange={(e) => setFormData({ ...formData, bodyHtml: e.target.value })}
+                        placeholder="<div style='...'>...</div>"
+                        className="w-full bg-slate-950 text-slate-100 border border-slate-700 rounded-lg p-3 text-xs focus:outline-none focus:border-indigo-500 font-mono leading-relaxed"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-2 p-6 bg-slate-50 rounded-lg min-h-[300px] border border-slate-200 text-slate-900 overflow-auto">
+                      <div dangerouslySetInnerHTML={{ __html: renderedPreview }} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Template'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Send Test Modal */}
+        {testModalOpen && testTemplate && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Send className="w-5 h-5 text-indigo-600" />
+                  <h3 className="text-base font-bold text-slate-900">Send Live Test Email</h3>
+                </div>
+                <button
+                  onClick={() => setTestModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div className="text-xs text-slate-400">Template:</div>
+                  <div className="font-semibold text-slate-900">{testTemplate.name}</div>
+                  <div className="text-xs text-slate-500 mt-1 font-mono truncate">
+                    Subject: {testTemplate.subject}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Recipient Email Address:*
+                  </label>
+                  <input
+                    type="email"
+                    value={testRecipient}
+                    onChange={(e) => setTestRecipient(e.target.value)}
+                    placeholder="your-email@example.com"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                {testResult && (
+                  <div
+                    className={`p-3 rounded-xl text-xs border ${
+                      testResult.success
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-rose-50 border-rose-200 text-rose-800'
+                    }`}
+                  >
+                    <p className="font-semibold">{testResult.message || (testResult.success ? 'Email dispatched successfully!' : 'Delivery failed')}</p>
+                    {testResult.messageId && (
+                      <p className="mt-1 font-mono text-[11px] text-slate-500">
+                        Message ID: {testResult.messageId}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm"
+                  onClick={() => setTestModalOpen(false)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
-                  type="submit"
-                  disabled={saving}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-6 py-2 rounded-lg text-sm transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                  onClick={handleSendTest}
+                  disabled={sendingTest || !testRecipient}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : 'Save Template'}
+                  {sendingTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  <span>Send Now</span>
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Send Test Modal */}
-      {testModalOpen && testTemplate && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Send className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-base font-bold text-slate-100">Send Live Test Email</h3>
-              </div>
-              <button
-                onClick={() => setTestModalOpen(false)}
-                className="text-slate-500 hover:text-slate-300 text-lg"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
-                <div className="text-xs text-slate-400">Template:</div>
-                <div className="font-semibold text-slate-200">{testTemplate.name}</div>
-                <div className="text-xs text-slate-500 mt-1 font-mono truncate">
-                  Subject: {testTemplate.subject}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Recipient Email:*
-                </label>
-                <input
-                  type="email"
-                  value={testRecipient}
-                  onChange={(e) => setTestRecipient(e.target.value)}
-                  placeholder="your-email@example.com"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              {testResult && (
-                <div
-                  className={`p-3 rounded-xl text-xs border ${
-                    testResult.success
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                  }`}
-                >
-                  <p className="font-semibold">{testResult.message || (testResult.success ? 'Email dispatched successfully!' : 'Delivery failed')}</p>
-                  {testResult.messageId && (
-                    <p className="mt-1 font-mono text-[11px] text-slate-400">
-                      Message ID: {testResult.messageId}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
-              <button
-                onClick={() => setTestModalOpen(false)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleSendTest}
-                disabled={sendingTest || !testRecipient}
-                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
-              >
-                {sendingTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                <span>Send Now</span>
-              </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </AdminShell>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
 import { ImageUploader } from '@/components/image-uploader';
 import {
@@ -22,7 +23,6 @@ import {
   Send,
   Save,
   RotateCcw,
-  ExternalLink,
   Cloud,
 } from 'lucide-react';
 
@@ -93,7 +93,6 @@ export default function SystemSettingsPage() {
       const res = await apiRequest<Record<string, any>>('/super-admin/settings');
       if (res.success) {
         setSettings(res.data || {});
-        // Initialize current tab data
         const currentTabVal = res.data?.[activeTab]?.value || {};
         setFormData(currentTabVal);
       } else {
@@ -117,26 +116,6 @@ export default function SystemSettingsPage() {
 
   function handleFieldChange(field: string, value: any) {
     setFormData((prev) => ({ ...prev, [field]: value }));
-  }
-
-  async function handleTestCloudinary() {
-    setTestingCloudinary(true);
-    setCloudinaryResult(null);
-    try {
-      const res = await apiRequest<any>('/uploads/test-connection', {
-        method: 'POST',
-        body: JSON.stringify(formData),
-      });
-      if (res.success) {
-        setCloudinaryResult(res.data);
-      } else {
-        setCloudinaryResult({ success: false, message: res.error || 'Failed to ping Cloudinary' });
-      }
-    } catch (err: any) {
-      setCloudinaryResult({ success: false, message: err.message || 'Failed to ping Cloudinary' });
-    } finally {
-      setTestingCloudinary(false);
-    }
   }
 
   async function handleSave() {
@@ -242,51 +221,73 @@ export default function SystemSettingsPage() {
     }
   }
 
+  async function handleTestCloudinary() {
+    setTestingCloudinary(true);
+    setCloudinaryResult(null);
+    try {
+      const res = await apiRequest<any>('/uploads/test-connection', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      if (res.success) {
+        setCloudinaryResult(res.data);
+      } else {
+        setCloudinaryResult({ success: false, message: res.error || 'Failed to ping Cloudinary' });
+      }
+    } catch (err: any) {
+      setCloudinaryResult({ success: false, message: err.message || 'Failed to ping Cloudinary' });
+    } finally {
+      setTestingCloudinary(false);
+    }
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-      </div>
+      <AdminShell>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        </div>
+      </AdminShell>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-100">Platform System Settings</h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Configure multi-tenant platform baseline defaults, SMTP mailers, payment rails, branding, and dynamic domain rules.
-        </p>
-      </div>
-
-      {statusMsg && (
-        <div
-          className={`p-4 rounded-xl text-sm flex items-center justify-between border ${
-            statusMsg.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {statusMsg.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 shrink-0" />
-            )}
-            <span>{statusMsg.text}</span>
-          </div>
-          <button onClick={() => setStatusMsg(null)} className="text-xs hover:underline">
-            Dismiss
-          </button>
+    <AdminShell>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform System Settings</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Configure multi-tenant platform baseline defaults, SMTP mailers, payment rails, branding, and dynamic domain rules
+          </p>
         </div>
-      )}
 
-      {/* Main Grid: Left Tab Navigation, Right Tab Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Vertical Tab Bar */}
-        <div className="lg:col-span-1">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 space-y-1 shadow-sm">
+        {statusMsg && (
+          <div
+            className={`p-4 rounded-xl text-sm flex items-center justify-between border ${
+              statusMsg.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {statusMsg.type === 'success' ? (
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span className="font-medium">{statusMsg.text}</span>
+            </div>
+            <button onClick={() => setStatusMsg(null)} className="text-xs hover:underline font-semibold">
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Main Grid: Left Tabs, Right Form Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          {/* Left Vertical Tab Bar */}
+          <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-2.5 shadow-sm space-y-1">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.key;
@@ -296,27 +297,25 @@ export default function SystemSettingsPage() {
                   onClick={() => handleTabChange(tab.key)}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-emerald-500 text-slate-950 font-semibold shadow-md shadow-emerald-500/20'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100 shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
                   <span className="truncate">{tab.label}</span>
                 </button>
               );
             })}
           </div>
-        </div>
 
-        {/* Right Tab Content Panel */}
-        <div className="lg:col-span-3">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+          {/* Right Tab Content Card */}
+          <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
             {/* 1. GENERAL TAB */}
             {activeTab === 'general' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       App Name:*
                     </label>
                     <input
@@ -324,12 +323,12 @@ export default function SystemSettingsPage() {
                       value={formData.appName || ''}
                       onChange={(e) => handleFieldChange('appName', e.target.value)}
                       placeholder="Webin10"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Email:*
                     </label>
                     <input
@@ -337,40 +336,38 @@ export default function SystemSettingsPage() {
                       value={formData.email || ''}
                       onChange={(e) => handleFieldChange('email', e.target.value)}
                       placeholder="webin10.in@gmail.com"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Phone:*
                     </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={formData.phone || ''}
-                        onChange={(e) => handleFieldChange('phone', e.target.value)}
-                        placeholder="+91 7070799200"
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <span className="text-[11px] text-emerald-400 font-medium mt-1 block">Valid Number</span>
+                    <input
+                      type="text"
+                      value={formData.phone || ''}
+                      onChange={(e) => handleFieldChange('phone', e.target.value)}
+                      placeholder="+91 7070799200"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <span className="text-[11px] text-emerald-600 font-medium mt-1 block">Valid Number</span>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Plan Expire Notification (in Days):*
                     </label>
                     <input
                       type="number"
                       value={formData.planExpireNotificationDays ?? 5}
                       onChange={(e) => handleFieldChange('planExpireNotificationDays', Number(e.target.value))}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Address:*
                     </label>
                     <input
@@ -378,18 +375,18 @@ export default function SystemSettingsPage() {
                       value={formData.address || ''}
                       onChange={(e) => handleFieldChange('address', e.target.value)}
                       placeholder="Narkatiaganj, West Champaran, Bihar, 845455"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Default Language:
                     </label>
                     <select
                       value={formData.defaultLanguage || 'English'}
                       onChange={(e) => handleFieldChange('defaultLanguage', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="English">English</option>
                       <option value="Hindi">Hindi</option>
@@ -398,13 +395,13 @@ export default function SystemSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       User Default Language:
                     </label>
                     <select
                       value={formData.userDefaultLanguage || 'English'}
                       onChange={(e) => handleFieldChange('userDefaultLanguage', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="English">English</option>
                       <option value="Hindi">Hindi</option>
@@ -412,13 +409,13 @@ export default function SystemSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Date-Time Format:
                     </label>
                     <select
                       value={formData.dateTimeFormat || 'Day Month, Year'}
                       onChange={(e) => handleFieldChange('dateTimeFormat', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="Day Month, Year">Day Month, Year (24 Nov 2026)</option>
                       <option value="DD-MM-YYYY">DD-MM-YYYY (24-11-2026)</option>
@@ -427,7 +424,7 @@ export default function SystemSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Default Country Code:*
                     </label>
                     <input
@@ -435,18 +432,18 @@ export default function SystemSettingsPage() {
                       value={formData.defaultCountryCode || 'in'}
                       onChange={(e) => handleFieldChange('defaultCountryCode', e.target.value)}
                       placeholder="in"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Default Currency Format:
                     </label>
                     <select
                       value={formData.defaultCurrencyFormat || '₹ - INR Indian Rupee'}
                       onChange={(e) => handleFieldChange('defaultCurrencyFormat', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="₹ - INR Indian Rupee">₹ - INR Indian Rupee</option>
                       <option value="$ - USD US Dollar">$ - USD US Dollar</option>
@@ -455,25 +452,25 @@ export default function SystemSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Affiliation Amount Or Percentage:*
                     </label>
                     <input
                       type="number"
                       value={formData.affiliationAmount ?? 10}
                       onChange={(e) => handleFieldChange('affiliationAmount', Number(e.target.value))}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Affiliation Type:
                     </label>
                     <select
                       value={formData.affiliationType || 'Fix Amount'}
                       onChange={(e) => handleFieldChange('affiliationType', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="Fix Amount">Fix Amount</option>
                       <option value="Percentage">Percentage (%)</option>
@@ -481,13 +478,13 @@ export default function SystemSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Timezone:
                     </label>
                     <select
                       value={formData.timezone || 'UTC'}
                       onChange={(e) => handleFieldChange('timezone', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="UTC">UTC</option>
                       <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
@@ -497,13 +494,13 @@ export default function SystemSettingsPage() {
                   </div>
                 </div>
 
-                {/* Database Upgrade & Generate Sitemap Buttons (matching image) */}
+                {/* Database Upgrade & Sitemap Buttons */}
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <button
                     type="button"
                     onClick={handleUpgradeDatabase}
                     disabled={dbUpgrading}
-                    className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold px-4 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-amber-500/20 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
                   >
                     {dbUpgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
                     <span>Upgrade Database</span>
@@ -513,7 +510,7 @@ export default function SystemSettingsPage() {
                     type="button"
                     onClick={handleGenerateSitemap}
                     disabled={sitemapGenerating}
-                    className="flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-4 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-teal-500/20 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
                   >
                     {sitemapGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Network className="w-4 h-4" />}
                     <span>Generate Sitemap</span>
@@ -522,67 +519,67 @@ export default function SystemSettingsPage() {
 
                 {/* Block Email Domain */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Block Email Domain: <span className="text-slate-500 font-normal">(comma-separated)</span>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Block Email Domain: <span className="text-slate-400 font-normal">(comma-separated)</span>
                   </label>
                   <textarea
                     rows={3}
                     value={formData.blockEmailDomains || ''}
                     onChange={(e) => handleFieldChange('blockEmailDomains', e.target.value)}
                     placeholder="tempmail.com, 10minutemail.com, maildrop.cc"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                   />
                 </div>
 
-                {/* Toggle Switches (matching image) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
-                    <span className="text-sm text-slate-300">Show Currency Behind</span>
+                {/* Toggle Switches */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+                    <span className="text-sm font-medium text-slate-700">Show Currency Behind</span>
                     <input
                       type="checkbox"
                       checked={Boolean(formData.showCurrencyBehind)}
                       onChange={(e) => handleFieldChange('showCurrencyBehind', e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700"
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                     />
                   </label>
 
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
-                    <span className="text-sm text-slate-300">Enable Phone Number Input Validation</span>
+                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+                    <span className="text-sm font-medium text-slate-700">Enable Phone Number Input Validation</span>
                     <input
                       type="checkbox"
                       checked={Boolean(formData.enablePhoneValidation)}
                       onChange={(e) => handleFieldChange('enablePhoneValidation', e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700"
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                     />
                   </label>
 
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
-                    <span className="text-sm text-slate-300">Allow to edit vCard URL Alias</span>
+                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+                    <span className="text-sm font-medium text-slate-700">Allow to edit vCard URL Alias</span>
                     <input
                       type="checkbox"
                       checked={Boolean(formData.allowEditVcardAlias)}
                       onChange={(e) => handleFieldChange('allowEditVcardAlias', e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700"
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                     />
                   </label>
 
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
-                    <span className="text-sm text-slate-300">Hide Decimal Values</span>
+                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+                    <span className="text-sm font-medium text-slate-700">Hide Decimal Values</span>
                     <input
                       type="checkbox"
                       checked={Boolean(formData.hideDecimalValues)}
                       onChange={(e) => handleFieldChange('hideDecimalValues', e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700"
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                     />
                   </label>
 
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer md:col-span-2">
-                    <span className="text-sm text-slate-300">NFC logo required</span>
+                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer md:col-span-2">
+                    <span className="text-sm font-medium text-slate-700">NFC logo required</span>
                     <input
                       type="checkbox"
                       checked={Boolean(formData.nfcLogoRequired)}
                       onChange={(e) => handleFieldChange('nfcLogoRequired', e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700"
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                     />
                   </label>
                 </div>
@@ -593,38 +590,38 @@ export default function SystemSettingsPage() {
             {activeTab === 'terms' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Terms & Conditions:*
                   </label>
                   <textarea
                     rows={6}
                     value={formData.termsAndConditions || ''}
                     onChange={(e) => handleFieldChange('termsAndConditions', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Privacy Policy:*
                   </label>
                   <textarea
                     rows={6}
                     value={formData.privacyPolicy || ''}
                     onChange={(e) => handleFieldChange('privacyPolicy', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Refund & Cancellation Policy:*
                   </label>
                   <textarea
                     rows={4}
                     value={formData.refundPolicy || ''}
                     onChange={(e) => handleFieldChange('refundPolicy', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
@@ -635,20 +632,20 @@ export default function SystemSettingsPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Google OAuth Client ID:
                     </label>
                     <input
                       type="text"
                       value={formData.clientId || ''}
                       onChange={(e) => handleFieldChange('clientId', e.target.value)}
-                      placeholder="e.g. 123456789-xyz.apps.googleusercontent.com"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      placeholder="123456789-xyz.apps.googleusercontent.com"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Google OAuth Client Secret:
                     </label>
                     <input
@@ -656,12 +653,12 @@ export default function SystemSettingsPage() {
                       value={formData.clientSecret || ''}
                       onChange={(e) => handleFieldChange('clientSecret', e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Google Maps API Key:
                     </label>
                     <input
@@ -669,12 +666,12 @@ export default function SystemSettingsPage() {
                       value={formData.mapsApiKey || ''}
                       onChange={(e) => handleFieldChange('mapsApiKey', e.target.value)}
                       placeholder="AIzaSy..."
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Google Analytics GA4 Tag ID:
                     </label>
                     <input
@@ -682,7 +679,7 @@ export default function SystemSettingsPage() {
                       value={formData.analyticsTagId || ''}
                       onChange={(e) => handleFieldChange('analyticsTagId', e.target.value)}
                       placeholder="G-XXXXXXXXXX"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
                 </div>
@@ -694,31 +691,31 @@ export default function SystemSettingsPage() {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Base Platform Currency:
                     </label>
                     <input
                       type="text"
                       value={formData.defaultCurrency || 'INR'}
                       onChange={(e) => handleFieldChange('defaultCurrency', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Standard GST / Tax Percentage (%):
                     </label>
                     <input
                       type="number"
                       value={formData.taxPercentage ?? 18}
                       onChange={(e) => handleFieldChange('taxPercentage', Number(e.target.value))}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Platform UPI ID / VPA:
                     </label>
                     <input
@@ -726,21 +723,21 @@ export default function SystemSettingsPage() {
                       value={formData.upiId || ''}
                       onChange={(e) => handleFieldChange('upiId', e.target.value)}
                       placeholder="webin10@upi"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
                 </div>
 
-                <div className="border-t border-slate-800 pt-4 space-y-4">
-                  <h3 className="text-sm font-bold text-slate-200">Gateway Credentials</h3>
-                  <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
+                <div className="border-t border-slate-100 pt-4 space-y-4">
+                  <h3 className="text-sm font-bold text-slate-900">Payment Gateway Rails</h3>
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm text-slate-200">Razorpay Gateway</span>
+                      <span className="font-semibold text-sm text-slate-900">Razorpay Gateway Integration</span>
                       <input
                         type="checkbox"
                         checked={Boolean(formData.razorpayEnabled)}
                         onChange={(e) => handleFieldChange('razorpayEnabled', e.target.checked)}
-                        className="w-4 h-4 rounded text-emerald-500 bg-slate-900 border-slate-700"
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                       />
                     </div>
                     {formData.razorpayEnabled && (
@@ -750,14 +747,14 @@ export default function SystemSettingsPage() {
                           value={formData.razorpayKeyId || ''}
                           onChange={(e) => handleFieldChange('razorpayKeyId', e.target.value)}
                           placeholder="rzp_live_key_..."
-                          className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200"
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900"
                         />
                         <input
                           type="password"
                           value={formData.razorpayKeySecret || ''}
                           onChange={(e) => handleFieldChange('razorpayKeySecret', e.target.value)}
                           placeholder="Razorpay Secret (••••••••)"
-                          className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200"
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900"
                         />
                       </div>
                     )}
@@ -770,7 +767,7 @@ export default function SystemSettingsPage() {
             {activeTab === 'homepage' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Hero Headline Title:
                   </label>
                   <input
@@ -778,70 +775,70 @@ export default function SystemSettingsPage() {
                     value={formData.heroTitle || ''}
                     onChange={(e) => handleFieldChange('heroTitle', e.target.value)}
                     placeholder="Empower Your Business With Webin10"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Hero Subtitle:
                   </label>
                   <textarea
                     rows={2}
                     value={formData.heroSubtitle || ''}
                     onChange={(e) => handleFieldChange('heroSubtitle', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       CTA Button Text:
                     </label>
                     <input
                       type="text"
                       value={formData.ctaButtonText || 'Start Free Trial'}
                       onChange={(e) => handleFieldChange('ctaButtonText', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       CTA Button URL:
                     </label>
                     <input
                       type="text"
                       value={formData.ctaButtonUrl || '/register'}
                       onChange={(e) => handleFieldChange('ctaButtonUrl', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
 
-                <div className="border-t border-slate-800 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border-t border-slate-100 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       SEO Meta Title:
                     </label>
                     <input
                       type="text"
                       value={formData.seoMetaTitle || ''}
                       onChange={(e) => handleFieldChange('seoMetaTitle', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       SEO Meta Description:
                     </label>
                     <input
                       type="text"
                       value={formData.seoMetaDescription || ''}
                       onChange={(e) => handleFieldChange('seoMetaDescription', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
@@ -851,28 +848,28 @@ export default function SystemSettingsPage() {
             {/* 6. GOOGLE RECAPTCHA TAB */}
             {activeTab === 'recaptcha' && (
               <div className="space-y-4">
-                <label className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer">
+                <label className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                   <div>
-                    <span className="font-semibold text-sm text-slate-200">Enable Google reCAPTCHA</span>
-                    <p className="text-xs text-slate-500 mt-0.5">Protects registration, login and reset password forms from bot attacks.</p>
+                    <span className="font-semibold text-sm text-slate-900">Enable Google reCAPTCHA</span>
+                    <p className="text-xs text-slate-500 mt-0.5">Protects registration, login and reset password forms from bot abuse</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={Boolean(formData.enabled)}
                     onChange={(e) => handleFieldChange('enabled', e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-500 bg-slate-900 border-slate-700"
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                   />
                 </label>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       reCAPTCHA Version:
                     </label>
                     <select
                       value={formData.version || 'v2'}
                       onChange={(e) => handleFieldChange('version', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="v2">v2 (I am not a robot checkbox)</option>
                       <option value="v3">v3 (Score-based invisible badge)</option>
@@ -880,7 +877,7 @@ export default function SystemSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Site Key:*
                     </label>
                     <input
@@ -888,12 +885,12 @@ export default function SystemSettingsPage() {
                       value={formData.siteKey || ''}
                       onChange={(e) => handleFieldChange('siteKey', e.target.value)}
                       placeholder="6LeIxacTAAAAA..."
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Secret Key:*
                     </label>
                     <input
@@ -901,7 +898,7 @@ export default function SystemSettingsPage() {
                       value={formData.secretKey || ''}
                       onChange={(e) => handleFieldChange('secretKey', e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
                 </div>
@@ -912,7 +909,7 @@ export default function SystemSettingsPage() {
             {activeTab === 'social' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Facebook URL:
                   </label>
                   <input
@@ -920,12 +917,12 @@ export default function SystemSettingsPage() {
                     value={formData.facebookUrl || ''}
                     onChange={(e) => handleFieldChange('facebookUrl', e.target.value)}
                     placeholder="https://facebook.com/webin10"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Twitter / X URL:
                   </label>
                   <input
@@ -933,12 +930,12 @@ export default function SystemSettingsPage() {
                     value={formData.twitterUrl || ''}
                     onChange={(e) => handleFieldChange('twitterUrl', e.target.value)}
                     placeholder="https://twitter.com/webin10"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Instagram URL:
                   </label>
                   <input
@@ -946,12 +943,12 @@ export default function SystemSettingsPage() {
                     value={formData.instagramUrl || ''}
                     onChange={(e) => handleFieldChange('instagramUrl', e.target.value)}
                     placeholder="https://instagram.com/webin10"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     LinkedIn URL:
                   </label>
                   <input
@@ -959,12 +956,12 @@ export default function SystemSettingsPage() {
                     value={formData.linkedinUrl || ''}
                     onChange={(e) => handleFieldChange('linkedinUrl', e.target.value)}
                     placeholder="https://linkedin.com/company/webin10"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     YouTube URL:
                   </label>
                   <input
@@ -972,12 +969,12 @@ export default function SystemSettingsPage() {
                     value={formData.youtubeUrl || ''}
                     onChange={(e) => handleFieldChange('youtubeUrl', e.target.value)}
                     placeholder="https://youtube.com/@webin10"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     WhatsApp Support Number:
                   </label>
                   <input
@@ -985,25 +982,25 @@ export default function SystemSettingsPage() {
                     value={formData.whatsappNumber || ''}
                     onChange={(e) => handleFieldChange('whatsappNumber', e.target.value)}
                     placeholder="+917070799200"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
             )}
 
-            {/* 8. MAIL SETTINGS TAB (GOOGLE SMTP & CUSTOM SMTP) */}
+            {/* 8. MAIL SETTINGS TAB */}
             {activeTab === 'mail' && (
               <div className="space-y-6">
-                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 space-y-1">
-                  <p className="font-semibold text-emerald-300">Google SMTP / Custom SMTP Support Enabled:</p>
-                  <p className="text-slate-300">
-                    Use Google SMTP by providing your Gmail address and a 16-character <strong>Google App Password</strong> (from your Google Account Security Settings). All outgoing platform & business emails will dispatch directly through Google SMTP.
+                <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 text-xs text-indigo-900 space-y-1">
+                  <p className="font-semibold text-indigo-700">Google SMTP / Custom SMTP Support:</p>
+                  <p className="text-slate-600">
+                    Use Google SMTP by providing your Gmail address and a 16-character <strong>Google App Password</strong> (from your Google Account Security Settings). All platform notifications & business emails will dispatch through Google SMTP.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Mail Provider Preset:
                     </label>
                     <select
@@ -1022,7 +1019,7 @@ export default function SystemSettingsPage() {
                           handleFieldChange('provider', val);
                         }
                       }}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="google">Google / Gmail SMTP (Recommended)</option>
                       <option value="smtp">Custom SMTP Server</option>
@@ -1032,7 +1029,7 @@ export default function SystemSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       SMTP Host:*
                     </label>
                     <input
@@ -1040,12 +1037,12 @@ export default function SystemSettingsPage() {
                       value={formData.host || 'smtp.gmail.com'}
                       onChange={(e) => handleFieldChange('host', e.target.value)}
                       placeholder="smtp.gmail.com"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       SMTP Port:*
                     </label>
                     <input
@@ -1053,18 +1050,18 @@ export default function SystemSettingsPage() {
                       value={formData.port ?? 587}
                       onChange={(e) => handleFieldChange('port', Number(e.target.value))}
                       placeholder="587"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Encryption (Secure):
                     </label>
                     <select
                       value={formData.secure ? 'true' : 'false'}
                       onChange={(e) => handleFieldChange('secure', e.target.value === 'true')}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="false">TLS (Port 587 / STARTTLS)</option>
                       <option value="true">SSL (Port 465)</option>
@@ -1072,7 +1069,7 @@ export default function SystemSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       SMTP Username / Email:*
                     </label>
                     <input
@@ -1080,12 +1077,12 @@ export default function SystemSettingsPage() {
                       value={formData.username || ''}
                       onChange={(e) => handleFieldChange('username', e.target.value)}
                       placeholder="webin10.in@gmail.com"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       SMTP Password / App Password:*
                     </label>
                     <input
@@ -1093,12 +1090,12 @@ export default function SystemSettingsPage() {
                       value={formData.password || ''}
                       onChange={(e) => handleFieldChange('password', e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       From Email Address:*
                     </label>
                     <input
@@ -1106,12 +1103,12 @@ export default function SystemSettingsPage() {
                       value={formData.fromEmail || ''}
                       onChange={(e) => handleFieldChange('fromEmail', e.target.value)}
                       placeholder="webin10.in@gmail.com"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       From Sender Name:*
                     </label>
                     <input
@@ -1119,15 +1116,15 @@ export default function SystemSettingsPage() {
                       value={formData.fromName || 'Webin10 Platform'}
                       onChange={(e) => handleFieldChange('fromName', e.target.value)}
                       placeholder="Webin10 Platform"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
 
-                {/* SMTP Test Console */}
-                <div className="border-t border-slate-800 pt-5 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-                    <Send className="w-4 h-4 text-emerald-400" />
+                {/* Live SMTP Test Console */}
+                <div className="border-t border-slate-100 pt-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Send className="w-4 h-4 text-indigo-600" />
                     <span>Live SMTP Verification & Test Email</span>
                   </h3>
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -1136,13 +1133,13 @@ export default function SystemSettingsPage() {
                       value={testMailRecipient}
                       onChange={(e) => setTestMailRecipient(e.target.value)}
                       placeholder="Enter recipient email (e.g. your email)"
-                      className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="flex-1 bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                     <button
                       type="button"
                       onClick={handleSendTestMail}
                       disabled={testMailSending}
-                      className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-2 rounded-lg text-sm transition-all disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
                     >
                       {testMailSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                       <span>Send Test Email</span>
@@ -1153,13 +1150,13 @@ export default function SystemSettingsPage() {
                     <div
                       className={`p-3.5 rounded-xl text-xs border ${
                         testMailResult.success
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                          : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : 'bg-rose-50 border-rose-200 text-rose-800'
                       }`}
                     >
                       <p className="font-semibold">{testMailResult.message}</p>
                       {testMailResult.details && (
-                        <p className="mt-1 font-mono text-[11px] text-slate-400">
+                        <p className="mt-1 font-mono text-[11px] text-slate-500">
                           Message ID: {testMailResult.details.messageId}
                         </p>
                       )}
@@ -1172,22 +1169,22 @@ export default function SystemSettingsPage() {
             {/* 9. CUSTOM DOMAIN TAB */}
             {activeTab === 'custom_domain' && (
               <div className="space-y-4">
-                <label className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer">
+                <label className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                   <div>
-                    <span className="font-semibold text-sm text-slate-200">Enable Custom Business Domains</span>
-                    <p className="text-xs text-slate-500 mt-0.5">Allows tenant businesses to map their own domains (e.g. gym.acmefitness.in).</p>
+                    <span className="font-semibold text-sm text-slate-900">Enable Custom Business Domains</span>
+                    <p className="text-xs text-slate-500 mt-0.5">Allows tenant businesses to map their custom domains</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={Boolean(formData.enabled)}
                     onChange={(e) => handleFieldChange('enabled', e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-500 bg-slate-900 border-slate-700"
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                   />
                 </label>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Platform CNAME Target:
                     </label>
                     <input
@@ -1195,12 +1192,12 @@ export default function SystemSettingsPage() {
                       value={formData.cnameTarget || 'cname.webin10.com'}
                       onChange={(e) => handleFieldChange('cnameTarget', e.target.value)}
                       placeholder="cname.webin10.com"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Edge Server IP Address:
                     </label>
                     <input
@@ -1208,19 +1205,19 @@ export default function SystemSettingsPage() {
                       value={formData.serverIp || '76.76.21.21'}
                       onChange={(e) => handleFieldChange('serverIp', e.target.value)}
                       placeholder="76.76.21.21"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Customer DNS Instructions:
                     </label>
                     <textarea
                       rows={3}
                       value={formData.instructions || ''}
                       onChange={(e) => handleFieldChange('instructions', e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
@@ -1232,27 +1229,27 @@ export default function SystemSettingsPage() {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Primary Brand Color:
                     </label>
                     <div className="flex items-center gap-3">
                       <input
                         type="color"
-                        value={formData.primaryColor || '#00D09C'}
+                        value={formData.primaryColor || '#4F46E5'}
                         onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
-                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-700"
+                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-200"
                       />
                       <input
                         type="text"
-                        value={formData.primaryColor || '#00D09C'}
+                        value={formData.primaryColor || '#4F46E5'}
                         onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono"
+                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Secondary Brand Color:
                     </label>
                     <div className="flex items-center gap-3">
@@ -1260,19 +1257,19 @@ export default function SystemSettingsPage() {
                         type="color"
                         value={formData.secondaryColor || '#0F172A'}
                         onChange={(e) => handleFieldChange('secondaryColor', e.target.value)}
-                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-700"
+                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-200"
                       />
                       <input
                         type="text"
                         value={formData.secondaryColor || '#0F172A'}
                         onChange={(e) => handleFieldChange('secondaryColor', e.target.value)}
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono"
+                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Accent Color:
                     </label>
                     <div className="flex items-center gap-3">
@@ -1280,19 +1277,19 @@ export default function SystemSettingsPage() {
                         type="color"
                         value={formData.accentColor || '#F59E0B'}
                         onChange={(e) => handleFieldChange('accentColor', e.target.value)}
-                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-700"
+                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-200"
                       />
                       <input
                         type="text"
                         value={formData.accentColor || '#F59E0B'}
                         onChange={(e) => handleFieldChange('accentColor', e.target.value)}
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono"
+                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-800">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
                   <div>
                     <ImageUploader
                       label="Platform Logo (Cloudinary CDN)"
@@ -1319,16 +1316,16 @@ export default function SystemSettingsPage() {
             {/* 11. CLOUDINARY MEDIA STORAGE TAB */}
             {activeTab === 'cloudinary' && (
               <div className="space-y-6">
-                <div className="p-4 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-400 space-y-1">
-                  <p className="font-semibold text-sky-300">Cloudinary Global Media CDN Integration:</p>
-                  <p className="text-slate-300">
-                    All admin profile photos, business logos, user avatars, and invoice attachments are stored and delivered with automatic format optimization and compression via Cloudinary.
+                <div className="p-4 rounded-xl bg-sky-50 border border-sky-100 text-xs text-sky-900 space-y-1">
+                  <p className="font-semibold text-sky-700">Cloudinary Global Media CDN Integration:</p>
+                  <p className="text-slate-600">
+                    All admin profile photos, business logos, user avatars, and invoice attachments are stored and delivered with automatic compression via Cloudinary.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Cloud Name:*
                     </label>
                     <input
@@ -1336,12 +1333,12 @@ export default function SystemSettingsPage() {
                       value={formData.cloudName || ''}
                       onChange={(e) => handleFieldChange('cloudName', e.target.value)}
                       placeholder="e.g. dxyz123ab"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       API Key:*
                     </label>
                     <input
@@ -1349,12 +1346,12 @@ export default function SystemSettingsPage() {
                       value={formData.apiKey || ''}
                       onChange={(e) => handleFieldChange('apiKey', e.target.value)}
                       placeholder="e.g. 123456789012345"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       API Secret:*
                     </label>
                     <input
@@ -1362,12 +1359,12 @@ export default function SystemSettingsPage() {
                       value={formData.apiSecret || ''}
                       onChange={(e) => handleFieldChange('apiSecret', e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Root Folder Prefix:
                     </label>
                     <input
@@ -1375,19 +1372,19 @@ export default function SystemSettingsPage() {
                       value={formData.folderPrefix || 'webin10'}
                       onChange={(e) => handleFieldChange('folderPrefix', e.target.value)}
                       placeholder="webin10"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
                 </div>
 
                 {/* Test Cloudinary Connection Button */}
-                <div className="border-t border-slate-800 pt-5 space-y-3">
+                <div className="border-t border-slate-100 pt-5 space-y-3">
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={handleTestCloudinary}
                       disabled={testingCloudinary}
-                      className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-2 rounded-lg text-sm transition-all disabled:opacity-50"
+                      className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-medium px-5 py-2 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
                     >
                       {testingCloudinary ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
                       <span>Test Cloudinary Connection</span>
@@ -1399,8 +1396,8 @@ export default function SystemSettingsPage() {
                     <div
                       className={`p-3.5 rounded-xl text-xs border ${
                         cloudinaryResult.success
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                          : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : 'bg-rose-50 border-rose-200 text-rose-800'
                       }`}
                     >
                       <p className="font-semibold">{cloudinaryResult.message}</p>
@@ -1410,140 +1407,140 @@ export default function SystemSettingsPage() {
               </div>
             )}
 
-            {/* Bottom Save & Discard Buttons (matching image) */}
-            <div className="flex items-center gap-3 pt-6 border-t border-slate-800">
+            {/* Bottom Save & Discard Buttons */}
+            <div className="flex items-center gap-3 pt-6 border-t border-slate-100">
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>Save</span>
+                <span>Save Settings</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleDiscard}
-                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-2.5 rounded-xl text-sm transition-all"
+                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors border border-slate-200"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>Discard</span>
+                <span>Discard Changes</span>
               </button>
             </div>
           </div>
         </div>
+
+        {/* Database Upgrade Modal Result */}
+        {dbModalResult && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Database className="w-5 h-5 text-amber-500" />
+                  <h3 className="text-base font-bold text-slate-900">Database Synchronization Result</h3>
+                </div>
+                <button
+                  onClick={() => setDbModalResult(null)}
+                  className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <p className="text-slate-700">{dbModalResult.message}</p>
+                {dbModalResult.stats && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 font-mono text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Database Engine:</span>
+                      <span className="text-slate-800">{dbModalResult.database}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Prisma Version:</span>
+                      <span className="text-slate-800">{dbModalResult.schemaVersion}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Query Latency:</span>
+                      <span className="text-emerald-600 font-semibold">{dbModalResult.latencyMs} ms</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Active Tenants:</span>
+                      <span className="text-slate-800">{dbModalResult.stats.tenants}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Platform Modules:</span>
+                      <span className="text-slate-800">{dbModalResult.stats.platformModules}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => setDbModalResult(null)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sitemap Modal Result */}
+        {sitemapModalResult && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Network className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-base font-bold text-slate-900">Dynamic Sitemap Generated</h3>
+                </div>
+                <button
+                  onClick={() => setSitemapModalResult(null)}
+                  className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <p className="text-slate-700">{sitemapModalResult.message}</p>
+                {sitemapModalResult.summary && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 font-mono text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Sitemap URL:</span>
+                      <span className="text-indigo-600 break-all">{sitemapModalResult.sitemapUrl}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Static Landing Pages:</span>
+                      <span className="text-slate-800">{sitemapModalResult.summary.staticPages}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Tenant Pages Indexed:</span>
+                      <span className="text-slate-800">{sitemapModalResult.summary.tenantPages}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Total Indexed URLs:</span>
+                      <span className="text-emerald-600 font-bold">{sitemapModalResult.summary.totalUrls}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => setSitemapModalResult(null)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Database Upgrade Modal Result */}
-      {dbModalResult && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-bold text-slate-100">Database Synchronization Result</h3>
-              </div>
-              <button
-                onClick={() => setDbModalResult(null)}
-                className="text-slate-500 hover:text-slate-300 text-lg"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <p className="text-slate-300">{dbModalResult.message}</p>
-              {dbModalResult.stats && (
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Database Engine:</span>
-                    <span className="text-slate-300">{dbModalResult.database}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Prisma Version:</span>
-                    <span className="text-slate-300">{dbModalResult.schemaVersion}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Query Latency:</span>
-                    <span className="text-emerald-400">{dbModalResult.latencyMs} ms</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Active Tenants:</span>
-                    <span className="text-slate-200">{dbModalResult.stats.tenants}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Platform Modules:</span>
-                    <span className="text-slate-200">{dbModalResult.stats.platformModules}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setDbModalResult(null)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sitemap Modal Result */}
-      {sitemapModalResult && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Network className="w-5 h-5 text-teal-400" />
-                <h3 className="text-base font-bold text-slate-100">Dynamic Sitemap Generated</h3>
-              </div>
-              <button
-                onClick={() => setSitemapModalResult(null)}
-                className="text-slate-500 hover:text-slate-300 text-lg"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <p className="text-slate-300">{sitemapModalResult.message}</p>
-              {sitemapModalResult.summary && (
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Sitemap URL:</span>
-                    <span className="text-emerald-400 break-all">{sitemapModalResult.sitemapUrl}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Static Landing Pages:</span>
-                    <span className="text-slate-300">{sitemapModalResult.summary.staticPages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Tenant Pages Indexed:</span>
-                    <span className="text-slate-300">{sitemapModalResult.summary.tenantPages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Total Indexed URLs:</span>
-                    <span className="text-emerald-400 font-bold">{sitemapModalResult.summary.totalUrls}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setSitemapModalResult(null)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </AdminShell>
   );
 }
