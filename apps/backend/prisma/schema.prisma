@@ -311,6 +311,7 @@ model ConfigurationDefinition {
   description String?
 
   values      ConfigurationValue[]
+  versions    ConfigurationVersion[]
 
   @@map("configuration_definitions")
 }
@@ -327,6 +328,23 @@ model ConfigurationValue {
 
   @@unique([definitionId, tenantId])
   @@map("configuration_values")
+}
+
+model ConfigurationVersion {
+  id            String                  @id @default(uuid()) @db.Uuid
+  definitionId  String                  @map("definition_id") @db.Uuid
+  tenantId      String?                 @map("tenant_id") @db.Uuid // null = platform level
+  version       Int
+  value         String
+  previousValue String?                 @map("previous_value")
+  reason        String?
+  changedById   String                  @map("changed_by_id") @db.Uuid
+  createdAt     DateTime                @default(now()) @map("created_at")
+
+  definition    ConfigurationDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@index([definitionId, tenantId])
+  @@map("configuration_versions")
 }
 
 model AuditLog {
