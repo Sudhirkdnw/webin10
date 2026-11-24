@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
 import { Building2, Plus, Search, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
@@ -171,7 +172,9 @@ export default function TenantsPage() {
                 tenants.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-900">{t.name}</div>
+                      <Link href={`/tenants/${t.id}`} className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors">
+                        {t.name}
+                      </Link>
                       <div className="text-xs text-slate-400 font-mono">{t.slug}</div>
                     </td>
                     <td className="px-6 py-4 text-slate-600 font-medium">
@@ -195,7 +198,13 @@ export default function TenantsPage() {
                         {t.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                      <Link
+                        href={`/tenants/${t.id}`}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        Manage
+                      </Link>
                       <button
                         onClick={() => handleToggleStatus(t)}
                         className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
