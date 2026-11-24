@@ -112,6 +112,106 @@ export class WhatsAppService {
   }
 
   /**
+   * 4b. Sync Templates from Meta WhatsApp Cloud API into Webin10
+   */
+  async syncTemplatesFromMeta() {
+    const integration = await this.prisma.platformIntegration.findUnique({
+      where: { provider: 'META_WHATSAPP' as any },
+    });
+    const creds = (integration?.credentials as any) || {};
+    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+    let wabaId = process.env.META_WHATSAPP_WABA_ID || creds.wabaId;
+    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
+
+    if (!accessToken) {
+      throw new BadRequestException('Meta WhatsApp Access Token not configured on platform');
+    }
+
+    // If wabaId is not set, resolve it from phoneNumberId
+    if (!wabaId && phoneNumberId) {
+      try {
+        const phoneRes = await fetch(
+          `https://graph.facebook.com/v21.0/${phoneNumberId}?fields=whatsapp_business_account&access_token=${accessToken}`,
+        );
+        const phoneJson = await phoneRes.json();
+        if (phoneJson?.whatsapp_business_account?.id) {
+          wabaId = phoneJson.whatsapp_business_account.id;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed to resolve WABA ID from phone: ${err.message}`);
+      }
+    }
+
+    if (!wabaId) {
+      throw new BadRequestException(
+        'WhatsApp Business Account ID (WABA ID) not configured or could not be resolved from Phone Number ID.',
+      );
+    }
+
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${wabaId}/message_templates?limit=100&access_token=${accessToken}`,
+    );
+    const metaJson = await res.json();
+
+    if (!res.ok || !metaJson.data) {
+      throw new BadRequestException(
+        `Failed to fetch templates from Meta: ${metaJson.error?.message || 'Unknown error'}`,
+      );
+    }
+
+    const templates = metaJson.data as Array<any>;
+    let syncedCount = 0;
+
+    for (const tmpl of templates) {
+      const bodyComponent = tmpl.components?.find((c: any) => c.type === 'BODY');
+      const headerComponent = tmpl.components?.find((c: any) => c.type === 'HEADER');
+      const footerComponent = tmpl.components?.find((c: any) => c.type === 'FOOTER');
+      const buttonsComponent = tmpl.components?.find((c: any) => c.type === 'BUTTONS');
+
+      const bodyText = bodyComponent?.text || tmpl.name;
+      const headerType = headerComponent ? headerComponent.format || 'TEXT' : 'NONE';
+      const footerText = footerComponent?.text || null;
+      const category = (['MARKETING', 'UTILITY', 'AUTHENTICATION'].includes(tmpl.category)
+        ? tmpl.category
+        : 'UTILITY') as any;
+      const status = (['APPROVED', 'PENDING', 'REJECTED', 'DRAFT'].includes(tmpl.status)
+        ? tmpl.status
+        : 'APPROVED') as any;
+
+      await this.prisma.whatsAppTemplate.upsert({
+        where: { code: tmpl.name },
+        create: {
+          name: tmpl.name.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          code: tmpl.name,
+          language: tmpl.language || 'en_US',
+          category,
+          status,
+          headerType,
+          bodyText,
+          footerText,
+          buttons: buttonsComponent?.buttons || null,
+          isSystemDefault: true,
+        },
+        update: {
+          category,
+          status,
+          headerType,
+          bodyText,
+          footerText,
+          buttons: buttonsComponent?.buttons || null,
+        },
+      });
+      syncedCount++;
+    }
+
+    return {
+      success: true,
+      totalTemplatesFromMeta: templates.length,
+      syncedCount,
+    };
+  }
+
+  /**
    * 5. List Customers for Tenant (with filter & audience counts)
    */
   async listCustomers(tenantId: string, filter?: { status?: string; search?: string }) {

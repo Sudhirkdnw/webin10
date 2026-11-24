@@ -101,6 +101,12 @@ export class WhatsAppController {
     return this.whatsAppService.listTemplates(tenantId);
   }
 
+  @Post('admin/templates/sync')
+  @ApiOperation({ summary: 'Super Admin: Fetch and sync message templates directly from Meta Cloud API' })
+  async syncTemplatesFromMeta() {
+    return this.whatsAppService.syncTemplatesFromMeta();
+  }
+
   @Get('customers/:tenantId')
   @ApiOperation({ summary: 'List Customers & Audience counts for Tenant' })
   async listCustomers(

@@ -114,6 +114,29 @@ export default function SuperAdminWhatsAppManagement() {
     }
   }
 
+  const [syncingTemplates, setSyncingTemplates] = useState(false);
+
+  async function handleSyncTemplates() {
+    setSyncingTemplates(true);
+    try {
+      const res = await apiRequest('/whatsapp/admin/templates/sync', {
+        method: 'POST',
+      });
+      if (res.success) {
+        alert(
+          `Meta Templates Synced Successfully!\nTotal templates found on Meta: ${res.data.totalTemplatesFromMeta}\nUpdated in Webin10: ${res.data.syncedCount}`
+        );
+        loadAllData();
+      } else {
+        alert(res.error || 'Failed to sync templates from Meta');
+      }
+    } catch (e: any) {
+      alert(`Error syncing templates: ${e.message}`);
+    } finally {
+      setSyncingTemplates(false);
+    }
+  }
+
   async function loadAllData() {
     setLoading(true);
     try {
@@ -634,11 +657,21 @@ export default function SuperAdminWhatsAppManagement() {
         {/* TAB 4: TEMPLATES CATALOGUE */}
         {activeTab === 'templates' && (
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">System & Platform WhatsApp Templates</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Approved Meta Cloud API templates available across Webin10</p>
               </div>
+
+              <button
+                onClick={handleSyncTemplates}
+                disabled={syncingTemplates}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                title="Fetch and sync newly created templates from Meta WhatsApp Manager"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncingTemplates ? 'animate-spin' : ''}`} />
+                <span>{syncingTemplates ? 'Syncing with Meta...' : 'Sync Templates from Meta'}</span>
+              </button>
             </div>
 
             <div className="overflow-x-auto">
