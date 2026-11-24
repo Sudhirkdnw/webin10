@@ -367,3 +367,40 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+// -------------------------------------------------------------
+// 7. PLATFORM INTEGRATIONS (PAYMENT & WHATSAPP)
+// -------------------------------------------------------------
+
+enum IntegrationType {
+  PAYMENT_GATEWAY
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum IntegrationProvider {
+  RAZORPAY
+  CASHFREE
+  META_WHATSAPP
+  MSG91
+  AWS_SES
+  RESEND
+}
+
+model PlatformIntegration {
+  id           String              @id @default(uuid()) @db.Uuid
+  type         IntegrationType
+  provider     IntegrationProvider @unique
+  name         String
+  isEnabled    Boolean             @default(false) @map("is_enabled")
+  isTestMode   Boolean             @default(true) @map("is_test_mode")
+  credentials  Json?
+  settings     Json?
+  healthStatus String              @default("UNKNOWN") @map("health_status")
+  lastCheckedAt DateTime?          @map("last_checked_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@map("platform_integrations")
+}

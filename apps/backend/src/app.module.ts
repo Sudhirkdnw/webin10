@@ -9,6 +9,7 @@ import { PlatformModulesModule } from './modules/platform-modules/platform-modul
 import { FeaturesModule } from './modules/features/features.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { ConfigurationModule } from './modules/configuration/configuration.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { HealthModule } from './modules/health/health.module';
     FeaturesModule,
     PlansModule,
     ConfigurationModule,
+    IntegrationsModule,
     HealthModule,
   ],
 })
