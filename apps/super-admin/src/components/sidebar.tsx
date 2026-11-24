@@ -18,6 +18,7 @@ import {
   UserCheck,
   Mail,
   Settings,
+  MessageSquare,
 } from 'lucide-react';
 
 const navigation = [
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'Platform Modules', href: '/modules', icon: Boxes },
   { name: 'Feature Flags', href: '/features', icon: Flag },
   { name: 'Subscription Plans', href: '/plans', icon: CreditCard },
+  { name: 'WhatsApp & Messaging', href: '/whatsapp-management', icon: MessageSquare },
   { name: 'Dynamic Config', href: '/configurations', icon: Sliders },
   { name: 'Email Templates', href: '/email-templates', icon: Mail },
   { name: 'System Settings', href: '/settings', icon: Settings },

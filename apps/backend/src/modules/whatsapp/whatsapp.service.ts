@@ -1,4 +1,10 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
 
 export interface CreateCampaignDto {
@@ -171,12 +177,10 @@ export class WhatsAppService {
     });
 
     // Check Automation Rule for MEMBER_WELCOME
-    const welcomeRule = await this.prisma.whatsAppAutomationRule.findUnique({
+    const welcomeRule = await this.prisma.whatsAppAutomationRule.findFirst({
       where: {
-        tenantId_eventType: {
-          tenantId,
-          eventType: 'MEMBER_WELCOME',
-        },
+        tenantId,
+        eventType: 'MEMBER_WELCOME',
       },
     });
 
@@ -219,6 +223,17 @@ export class WhatsAppService {
    * 8. Create and Dispatch / Schedule Bulk Campaign
    */
   async createCampaign(tenantId: string, dto: CreateCampaignDto) {
+    const account = await this.getAccount(tenantId);
+    if (!account.isEnabled || account.isBlocked) {
+      throw new ForbiddenException(
+        account.blockReason ||
+          'WhatsApp service is currently disabled or restricted for your business by Super Admin. Please contact platform support.',
+      );
+    }
+    if (Number(account.creditsBalance) <= 0) {
+      throw new BadRequestException('Insufficient WhatsApp credits. Please contact Super Admin to recharge credits.');
+    }
+
     const template = await this.prisma.whatsAppTemplate.findFirst({
       where: { code: dto.templateCode },
     });
@@ -355,6 +370,12 @@ export class WhatsAppService {
     variables?: string[];
     customerId?: string;
   }) {
+    const account = await this.getAccount(params.tenantId);
+    if (!account.isEnabled || account.isBlocked) {
+      this.logger.warn(`Direct message skipped: WhatsApp is disabled/blocked for tenant ${params.tenantId}`);
+      return null;
+    }
+
     const template = await this.prisma.whatsAppTemplate.findFirst({
       where: { code: params.templateCode },
     });
@@ -511,6 +532,191 @@ export class WhatsAppService {
       success: true,
       messageId: `wamid_test_${Date.now()}`,
       recipient: cleanPhone,
+    };
+  }
+
+  // -------------------------------------------------------------------
+  // SUPER ADMIN MANAGEMENT & PLATFORM AUTOMATIONS
+  // -------------------------------------------------------------------
+
+  /**
+   * SUPER ADMIN: List all business tenants with WhatsApp configuration & usage
+   */
+  async listAdminTenants() {
+    const tenants = await this.prisma.tenant.findMany({
+      include: {
+        profile: true,
+        category: true,
+        whatsAppAccount: true,
+        _count: {
+          select: {
+            customers: true,
+            whatsAppCampaigns: true,
+            whatsAppLogs: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return tenants.map((t) => ({
+      tenantId: t.id,
+      name: t.name,
+      slug: t.slug,
+      category: t.category.name,
+      phone: t.profile?.phone || 'N/A',
+      email: t.profile?.email || 'N/A',
+      status: t.status,
+      whatsApp: {
+        isConfigured: !!t.whatsAppAccount,
+        isEnabled: t.whatsAppAccount?.isEnabled ?? true,
+        isBlocked: t.whatsAppAccount?.isBlocked ?? false,
+        blockReason: t.whatsAppAccount?.blockReason || null,
+        mode: t.whatsAppAccount?.mode || 'SHARED_PLATFORM',
+        creditsBalance: t.whatsAppAccount?.creditsBalance ? Number(t.whatsAppAccount.creditsBalance) : 250,
+        totalCustomers: t._count.customers,
+        totalCampaigns: t._count.whatsAppCampaigns,
+        totalMessagesSent: t._count.whatsAppLogs,
+      },
+    }));
+  }
+
+  /**
+   * SUPER ADMIN: Toggle WhatsApp access, block/unblock, or recharge credits for a business
+   */
+  async updateAdminTenantAccess(
+    tenantId: string,
+    data: {
+      isEnabled?: boolean;
+      isBlocked?: boolean;
+      blockReason?: string;
+      creditsAdjustment?: number;
+    },
+  ) {
+    const account = await this.getAccount(tenantId);
+
+    const updateData: any = {};
+    if (typeof data.isEnabled === 'boolean') updateData.isEnabled = data.isEnabled;
+    if (typeof data.isBlocked === 'boolean') updateData.isBlocked = data.isBlocked;
+    if (data.blockReason !== undefined) updateData.blockReason = data.blockReason;
+    if (data.creditsAdjustment) {
+      updateData.creditsBalance = { increment: data.creditsAdjustment };
+    }
+
+    return this.prisma.whatsAppAccount.update({
+      where: { id: account.id },
+      data: updateData,
+    });
+  }
+
+  /**
+   * SUPER ADMIN: List Platform-wide Automations (Tenant onboarding, SaaS expiry, Invoices)
+   */
+  async listPlatformAutomations() {
+    return this.prisma.whatsAppAutomationRule.findMany({
+      where: { tenantId: null },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /**
+   * SUPER ADMIN: Update Platform Automation rule toggle or timing
+   */
+  async updatePlatformAutomation(
+    ruleId: string,
+    data: { isEnabled?: boolean; triggerTiming?: number },
+  ) {
+    return this.prisma.whatsAppAutomationRule.update({
+      where: { id: ruleId },
+      data,
+    });
+  }
+
+  /**
+   * SUPER ADMIN: Broadcast WhatsApp message to ALL Registered Business Owners
+   */
+  async sendPlatformBroadcast(dto: {
+    name: string;
+    templateCode: string;
+    messageText?: string;
+    targetFilter?: string; // ALL, ACTIVE_TENANTS, TRIAL_TENANTS
+  }) {
+    const template = await this.prisma.whatsAppTemplate.findFirst({
+      where: { code: dto.templateCode },
+    });
+
+    if (!template) {
+      throw new NotFoundException(`Template '${dto.templateCode}' not found`);
+    }
+
+    const where: any = {};
+    if (dto.targetFilter === 'ACTIVE_TENANTS') where.status = 'ACTIVE';
+
+    const tenants = await this.prisma.tenant.findMany({
+      where,
+      include: { profile: true },
+    });
+
+    let sent = 0;
+    for (const tenant of tenants) {
+      const phone = tenant.profile?.phone;
+      if (phone) {
+        const content =
+          dto.messageText ||
+          template.bodyText
+            .replace('{{1}}', tenant.name)
+            .replace('{{2}}', 'Webin10 Platform')
+            .replace('{{3}}', 'https://webin10.com');
+
+        await this.prisma.whatsAppMessageLog.create({
+          data: {
+            tenantId: tenant.id,
+            recipientPhone: phone,
+            recipientName: tenant.name,
+            direction: 'OUTBOUND',
+            status: 'DELIVERED',
+            content,
+            templateCode: template.code,
+            metaMessageId: `wamid_platform_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            sentAt: new Date(),
+            deliveredAt: new Date(),
+          },
+        });
+        sent++;
+      }
+    }
+
+    return {
+      success: true,
+      broadcastName: dto.name,
+      totalTenantsTargeted: tenants.length,
+      sentCount: sent,
+    };
+  }
+
+  /**
+   * SUPER ADMIN: Platform-wide Stats
+   */
+  async getPlatformStats() {
+    const totalTenants = await this.prisma.tenant.count();
+    const enabledTenants = await this.prisma.whatsAppAccount.count({
+      where: { isEnabled: true, isBlocked: false },
+    });
+    const totalLogs = await this.prisma.whatsAppMessageLog.count();
+    const deliveredLogs = await this.prisma.whatsAppMessageLog.count({
+      where: { status: 'DELIVERED' },
+    });
+    const totalCredits = await this.prisma.whatsAppAccount.aggregate({
+      _sum: { creditsBalance: true },
+    });
+
+    return {
+      totalTenants,
+      enabledTenants,
+      disabledTenants: totalTenants - enabledTenants,
+      totalMessagesSent: totalLogs,
+      deliverySuccessRate: totalLogs > 0 ? `${Math.round((deliveredLogs / totalLogs) * 100)}%` : '100%',
+      totalCreditsInCirculation: totalCredits._sum.creditsBalance ? Number(totalCredits._sum.creditsBalance) : 0,
     };
   }
 }

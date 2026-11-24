@@ -466,6 +466,37 @@ async function main() {
       sampleVariables: ['FitZone Fitness Club', '25', '30 Nov 2026', 'FEST25'],
       buttons: [{ type: 'URL', text: 'Claim Special Offer', url: 'https://webin10.com/offers' }],
     },
+    // Platform-Level Templates (Super Admin to Tenants)
+    {
+      code: 'platform_tenant_welcome',
+      name: 'Super Admin: Tenant Workspace Activation Greeting',
+      category: 'UTILITY' as any,
+      status: 'APPROVED' as any,
+      isSystemDefault: true,
+      bodyText: 'Welcome {{1}} to Webin10 OS! 🚀 Your business workspace for {{2}} has been activated. Access your portal at {{3}}',
+      sampleVariables: ['Aman Admin', 'FitZone Club', 'https://fitzone.webin10.com'],
+      buttons: [{ type: 'URL', text: 'Open Admin Portal', url: 'http://localhost:3002' }],
+    },
+    {
+      code: 'platform_plan_expiry_7d',
+      name: 'Super Admin: 7-Day SaaS Subscription Expiry Alert',
+      category: 'UTILITY' as any,
+      status: 'APPROVED' as any,
+      isSystemDefault: true,
+      bodyText: 'Hi {{1}}, reminder that your Webin10 {{2}} subscription for {{3}} is expiring in 7 days (on {{4}}). Please click below to renew: {{5}}',
+      sampleVariables: ['Aman Admin', 'Growth Plan', 'FitZone Club', '30 Nov 2026', 'https://webin10.com/billing'],
+      buttons: [{ type: 'URL', text: 'Renew Platform Plan', url: 'https://webin10.com/billing' }],
+    },
+    {
+      code: 'platform_subscription_invoice',
+      name: 'Super Admin: Platform Subscription Tax Invoice',
+      category: 'UTILITY' as any,
+      status: 'APPROVED' as any,
+      isSystemDefault: true,
+      bodyText: 'Dear {{1}}, thank you! We have received payment of {{2}} for your Webin10 {{3}} subscription. Download tax receipt: {{4}}',
+      sampleVariables: ['Aman Admin', '₹999.00', 'Growth Plan', 'https://webin10.com/receipt/inv-01'],
+      buttons: [{ type: 'URL', text: 'Download SaaS Invoice', url: 'https://webin10.com/invoice' }],
+    },
   ];
 
   for (const t of defaultWhatsAppTemplates) {
@@ -475,6 +506,29 @@ async function main() {
       create: t,
     });
     console.log(`✓ WhatsApp Template seeded: ${t.name} [${t.code}]`);
+  }
+
+  // 10.1 Seed Platform WhatsApp Automation Rules (Managed by Super Admin)
+  const platformAutomations = [
+    { eventType: 'PLATFORM_TENANT_WELCOME' as any, name: 'Business Owner Welcome on Workspace Registration', isEnabled: true, templateCode: 'platform_tenant_welcome', triggerTiming: 0 },
+    { eventType: 'PLATFORM_PLAN_EXPIRY_7D' as any, name: '7-Day Prior SaaS Subscription Renewal Reminder', isEnabled: true, templateCode: 'platform_plan_expiry_7d', triggerTiming: -7 },
+    { eventType: 'PLATFORM_PLAN_EXPIRY_3D' as any, name: 'Urgent 3-Day Prior SaaS Expiry Notice', isEnabled: true, templateCode: 'platform_plan_expiry_7d', triggerTiming: -3 },
+    { eventType: 'PLATFORM_SUBSCRIPTION_INVOICE' as any, name: 'Instant SaaS Plan Subscription Payment Receipt', isEnabled: true, templateCode: 'platform_subscription_invoice', triggerTiming: 0 },
+  ];
+
+  for (const pa of platformAutomations) {
+    const existing = await prisma.whatsAppAutomationRule.findFirst({
+      where: { tenantId: null, eventType: pa.eventType },
+    });
+    if (!existing) {
+      await prisma.whatsAppAutomationRule.create({
+        data: {
+          ...pa,
+          tenantId: null,
+        },
+      });
+      console.log(`✓ Platform WhatsApp Automation rule seeded: ${pa.name}`);
+    }
   }
 
   // 11. Seed Demo Tenant (Gym & Fitness) with Customers for testing
@@ -545,14 +599,17 @@ async function main() {
     ];
 
     for (const r of autoRules) {
-      await prisma.whatsAppAutomationRule.upsert({
-        where: { tenantId_eventType: { tenantId: demoTenant.id, eventType: r.eventType } },
-        update: {},
-        create: {
-          ...r,
-          tenantId: demoTenant.id,
-        },
+      const existing = await prisma.whatsAppAutomationRule.findFirst({
+        where: { tenantId: demoTenant.id, eventType: r.eventType },
       });
+      if (!existing) {
+        await prisma.whatsAppAutomationRule.create({
+          data: {
+            ...r,
+            tenantId: demoTenant.id,
+          },
+        });
+      }
     }
 
     console.log(`✓ Demo Tenant FitZone seeded with WhatsApp Account, Customers and Automation Rules`);

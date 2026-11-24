@@ -160,4 +160,64 @@ export class WhatsAppController {
   ) {
     return this.whatsAppService.updateAutomation(tenantId, ruleId, data);
   }
+
+  // -------------------------------------------------------------------
+  // SUPER ADMIN MANAGEMENT & PLATFORM AUTOMATIONS
+  // -------------------------------------------------------------------
+
+  @Get('admin/tenants')
+  @ApiOperation({ summary: 'Super Admin: List all tenants and their WhatsApp access status' })
+  async listAdminTenants() {
+    return this.whatsAppService.listAdminTenants();
+  }
+
+  @Put('admin/tenants/:tenantId/access')
+  @ApiOperation({ summary: 'Super Admin: Enable/Disable, block, or adjust WhatsApp credits for a tenant' })
+  async updateAdminTenantAccess(
+    @Param('tenantId') tenantId: string,
+    @Body()
+    body: {
+      isEnabled?: boolean;
+      isBlocked?: boolean;
+      blockReason?: string;
+      creditsAdjustment?: number;
+    },
+  ) {
+    return this.whatsAppService.updateAdminTenantAccess(tenantId, body);
+  }
+
+  @Get('admin/automations')
+  @ApiOperation({ summary: 'Super Admin: List Platform-wide WhatsApp automations (Onboarding, SaaS expiry, Invoices)' })
+  async listPlatformAutomations() {
+    return this.whatsAppService.listPlatformAutomations();
+  }
+
+  @Put('admin/automations/:ruleId')
+  @ApiOperation({ summary: 'Super Admin: Toggle Platform-wide WhatsApp automation rule' })
+  async updatePlatformAutomation(
+    @Param('ruleId') ruleId: string,
+    @Body() body: { isEnabled?: boolean; triggerTiming?: number },
+  ) {
+    return this.whatsAppService.updatePlatformAutomation(ruleId, body);
+  }
+
+  @Post('admin/broadcast')
+  @ApiOperation({ summary: 'Super Admin: Send WhatsApp broadcast to all registered business owners' })
+  async sendPlatformBroadcast(
+    @Body()
+    body: {
+      name: string;
+      templateCode: string;
+      messageText?: string;
+      targetFilter?: string;
+    },
+  ) {
+    return this.whatsAppService.sendPlatformBroadcast(body);
+  }
+
+  @Get('admin/stats')
+  @ApiOperation({ summary: 'Super Admin: Get Platform-wide WhatsApp statistics' })
+  async getPlatformStats() {
+    return this.whatsAppService.getPlatformStats();
+  }
 }
