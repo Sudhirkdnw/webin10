@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -90,5 +91,18 @@ export class TenantsController {
   ) {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
     return this.tenantsService.activateTenant(id, admin.id, ip);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
+  @ApiOperation({ summary: 'Permanently delete business tenant and all its associated workspaces' })
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser() admin: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+    return this.tenantsService.deleteTenant(id, admin.id, ip);
   }
 }

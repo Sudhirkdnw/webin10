@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
 import Link from 'next/link';
@@ -17,10 +17,12 @@ import {
   Flag,
   ShieldCheck,
   Plus,
+  Trash2,
 } from 'lucide-react';
 
 export default function TenantDetailPage() {
   const routeParams = useParams();
+  const router = useRouter();
   const tenantId = (routeParams?.id as string) || '';
 
   const [tenant, setTenant] = useState<any>(null);
@@ -126,6 +128,31 @@ export default function TenantDetailPage() {
     }
   };
 
+  const handleDeleteTenant = async () => {
+    if (!tenant) return;
+    const confirmName = window.prompt(
+      `⚠️ PERMANENT DELETION WARNING\n\nDeleting "${tenant.name}" will permanently erase all its workspaces, branches, staff accounts, customers, WhatsApp campaigns, and logs.\n\nTo confirm, type "${tenant.name}" below:`
+    );
+
+    if (confirmName !== tenant.name) {
+      if (confirmName !== null) {
+        alert('Deletion cancelled: The name entered did not match.');
+      }
+      return;
+    }
+
+    const res = await apiRequest(`/super-admin/tenants/${tenantId}`, {
+      method: 'DELETE',
+    });
+
+    if (res.success) {
+      alert(`Tenant "${tenant.name}" has been permanently deleted.`);
+      router.push('/tenants');
+    } else {
+      alert(res.error || 'Failed to delete tenant');
+    }
+  };
+
   if (loading) {
     return (
       <AdminShell>
@@ -204,6 +231,15 @@ export default function TenantDetailPage() {
               }`}
             >
               {tenant.status === 'ACTIVE' ? 'Suspend Tenant' : 'Activate Tenant'}
+            </button>
+
+            <button
+              onClick={handleDeleteTenant}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+              title="Permanently Delete Business Tenant"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Business</span>
             </button>
           </div>
         </div>

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
-import { Building2, Plus, Search, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
+import { Building2, Plus, Search, ShieldAlert, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<any[]>([]);
@@ -95,6 +95,30 @@ export default function TenantsPage() {
       fetchTenants();
     } else {
       alert(res.error || 'Action failed');
+    }
+  };
+
+  const handleDeleteTenant = async (tenant: any) => {
+    const confirmName = window.prompt(
+      `⚠️ PERMANENT DELETION WARNING\n\nDeleting "${tenant.name}" will permanently erase all its workspaces, branches, staff accounts, customers, WhatsApp campaigns, and logs.\n\nTo confirm, type "${tenant.name}" below:`
+    );
+
+    if (confirmName !== tenant.name) {
+      if (confirmName !== null) {
+        alert('Deletion cancelled: The name entered did not match.');
+      }
+      return;
+    }
+
+    const res = await apiRequest(`/super-admin/tenants/${tenant.id}`, {
+      method: 'DELETE',
+    });
+
+    if (res.success) {
+      alert(`Tenant "${tenant.name}" has been permanently deleted.`);
+      fetchTenants();
+    } else {
+      alert(res.error || 'Failed to delete tenant');
     }
   };
 
@@ -214,6 +238,13 @@ export default function TenantsPage() {
                         }`}
                       >
                         {t.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTenant(t)}
+                        className="p-1.5 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
+                        title={`Delete ${t.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>

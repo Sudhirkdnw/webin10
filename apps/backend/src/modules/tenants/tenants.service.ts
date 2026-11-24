@@ -389,4 +389,50 @@ export class TenantsService {
       message: 'Tenant activated successfully',
     };
   }
+
+  async deleteTenant(id: string, adminId: string, ip?: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id },
+      include: { profile: true },
+    });
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with ID '${id}' not found`);
+    }
+
+    const tenantName = tenant.name;
+    const tenantSlug = tenant.slug;
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Audit logs have an FK without cascade, so clear them first
+      await tx.auditLog.deleteMany({
+        where: { tenantId: id },
+      });
+
+      // 2. Delete tenant (all other relations cascade automatically)
+      await tx.tenant.delete({
+        where: { id },
+      });
+    });
+
+    // 3. Log the deletion in auditService
+    await this.auditService.log({
+      actorId: adminId,
+      actorType: 'PLATFORM_ADMIN',
+      action: 'tenant.delete',
+      entity: 'tenants',
+      entityId: id,
+      details: {
+        deletedTenantName: tenantName,
+        deletedSlug: tenantSlug,
+        deletedAt: new Date().toISOString(),
+      },
+      ipAddress: ip,
+    });
+
+    return {
+      id,
+      name: tenantName,
+      message: `Tenant '${tenantName}' has been permanently deleted.`,
+    };
+  }
 }

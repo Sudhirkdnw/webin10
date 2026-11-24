@@ -335,7 +335,7 @@ export class WhatsAppService {
       if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
 
       let metaMessageId = `wamid_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      let status: 'DELIVERED' | 'FAILED' = 'FAILED';
+      let status: 'SENT' | 'FAILED' = 'FAILED';
       let errorMessage: string | null = null;
 
       if (!phoneNumberId || !accessToken) {
@@ -360,9 +360,8 @@ export class WhatsAppService {
           const metaJson = await res.json();
           if (res.ok && metaJson.messages?.[0]?.id) {
             metaMessageId = metaJson.messages[0].id;
-            status = 'DELIVERED';
+            status = 'SENT';
             sent++;
-            delivered++;
           } else {
             errorMessage = metaJson.error?.message || 'Meta API rejected message';
             failed++;
@@ -387,7 +386,7 @@ export class WhatsAppService {
           metaMessageId,
           errorMessage,
           sentAt: new Date(),
-          deliveredAt: status === 'DELIVERED' ? new Date() : undefined,
+          deliveredAt: undefined,
         },
       });
     }
@@ -486,7 +485,7 @@ export class WhatsAppService {
         const metaJson = await metaRes.json();
         if (metaRes.ok && metaJson.messages?.[0]?.id) {
           metaMessageId = metaJson.messages[0].id;
-          deliveryStatus = 'DELIVERED';
+          deliveryStatus = 'SENT';
           this.logger.log(`Meta WhatsApp dispatched: ${metaMessageId} to ${cleanPhone}`);
         } else {
           deliveryStatus = 'FAILED';
@@ -516,7 +515,7 @@ export class WhatsAppService {
         metaMessageId,
         errorMessage,
         sentAt: new Date(),
-        deliveredAt: deliveryStatus === 'DELIVERED' ? new Date() : undefined,
+        deliveredAt: undefined,
       },
     });
 
@@ -884,7 +883,7 @@ export class WhatsAppService {
           const metaJson = await res.json();
           if (res.ok && metaJson.messages?.[0]?.id) {
             metaMessageId = metaJson.messages[0].id;
-            deliveryStatus = 'DELIVERED';
+            deliveryStatus = 'SENT';
             sent++;
           } else {
             errorMessage = metaJson.error?.message || 'Meta API rejected message';
@@ -909,7 +908,7 @@ export class WhatsAppService {
             metaMessageId,
             errorMessage,
             sentAt: new Date(),
-            deliveredAt: deliveryStatus === 'DELIVERED' ? new Date() : undefined,
+            deliveredAt: undefined,
           },
         });
       }
