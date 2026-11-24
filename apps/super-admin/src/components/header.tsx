@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { LogOut, ShieldCheck, User } from 'lucide-react';
 
@@ -17,15 +18,19 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2.5 text-right">
-          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
-            <User className="w-4 h-4" />
+        <Link
+          href="/profile"
+          className="flex items-center gap-2.5 text-right p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+          title="Manage Admin Profile & Credentials"
+        >
+          <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
+            {user?.name ? user.name.slice(0, 2).toUpperCase() : <User className="w-4 h-4" />}
           </div>
           <div className="text-left">
             <p className="text-xs font-semibold text-slate-900 leading-tight">{user?.name || 'Super Admin'}</p>
             <p className="text-[10px] text-indigo-600 font-medium">{user?.role || 'PLATFORM_OWNER'}</p>
           </div>
-        </div>
+        </Link>
 
         <button
           onClick={logout}

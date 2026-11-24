@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Users2,
   LifeBuoy,
+  UserCheck,
 } from 'lucide-react';
 
 const navigation = [
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Integrations & Gateways', href: '/integrations', icon: Network },
   { name: 'Support Sessions', href: '/support', icon: LifeBuoy },
   { name: 'Platform Team', href: '/admins', icon: Users2 },
+  { name: 'Admin Profile', href: '/profile', icon: UserCheck },
   { name: 'Audit Logs', href: '/audit-logs', icon: ShieldAlert },
 ];
 

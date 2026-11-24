@@ -2,7 +2,10 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
+  Delete,
   Body,
+  Param,
   Req,
   UseGuards,
   HttpCode,
@@ -13,6 +16,8 @@ import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { SuperAdminLoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPlatformGuard } from '@/common/guards/jwt-platform.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '@webin10/shared-types';
@@ -59,4 +64,51 @@ export class AuthController {
   async getMe(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getPlatformProfile(user.id);
   }
+
+  @Patch('me')
+  @UseGuards(JwtPlatformGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update personal administrator profile details' })
+  async updateMe(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateProfileDto,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+    return this.authService.updateProfile(user.id, dto, ip);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtPlatformGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change administrator password and invalidate existing remote sessions' })
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+    return this.authService.changePassword(user.id, dto, ip);
+  }
+
+  @Get('sessions')
+  @UseGuards(JwtPlatformGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all active login sessions for current administrator' })
+  async getSessions(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getSessions(user.id);
+  }
+
+  @Delete('sessions/:id')
+  @UseGuards(JwtPlatformGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke and terminate a specific active session' })
+  async revokeSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') sessionId: string,
+  ) {
+    return this.authService.revokeSession(user.id, sessionId);
+  }
 }
+

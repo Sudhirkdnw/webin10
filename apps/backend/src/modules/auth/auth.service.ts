@@ -218,6 +218,91 @@ export class AuthService {
     return admin;
   }
 
+  async updateProfile(adminId: string, dto: { name: string }, ip?: string) {
+    const updated = await this.prisma.platformAdmin.update({
+      where: { id: adminId },
+      data: { name: dto.name },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        mfaEnabled: true,
+        updatedAt: true,
+      },
+    });
+
+    await this.auditService.log({
+      actorId: adminId,
+      actorType: 'PLATFORM_ADMIN',
+      action: 'profile.update',
+      entity: 'platform_admins',
+      entityId: adminId,
+      details: { newName: dto.name },
+      ipAddress: ip,
+    });
+
+    return updated;
+  }
+
+  async changePassword(adminId: string, dto: { currentPassword: string; newPassword: string }, ip?: string) {
+    const admin = await this.prisma.platformAdmin.findUnique({ where: { id: adminId } });
+    if (!admin) {
+      throw new UnauthorizedException('Administrator not found');
+    }
+
+    const isValid = await bcrypt.compare(dto.currentPassword, admin.passwordHash);
+    if (!isValid) {
+      throw new BadRequestException('Current password does not match');
+    }
+
+    const newHash = await bcrypt.hash(dto.newPassword, 12);
+    await this.prisma.platformAdmin.update({
+      where: { id: adminId },
+      data: { passwordHash: newHash },
+    });
+
+    // Revoke all other active sessions for this admin (force re-login on other devices)
+    await this.prisma.platformSession.deleteMany({
+      where: { adminId },
+    });
+
+    await this.auditService.log({
+      actorId: adminId,
+      actorType: 'PLATFORM_ADMIN',
+      action: 'profile.password_change',
+      entity: 'platform_admins',
+      entityId: adminId,
+      ipAddress: ip,
+    });
+
+    return { message: 'Password changed successfully. Please login again with your new credentials.' };
+  }
+
+  async getSessions(adminId: string) {
+    return this.prisma.platformSession.findMany({
+      where: {
+        adminId,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    });
+  }
+
+  async revokeSession(adminId: string, sessionId: string) {
+    await this.prisma.platformSession.deleteMany({
+      where: { id: sessionId, adminId },
+    });
+    return { message: 'Session revoked successfully' };
+  }
+
   private async generatePlatformTokens(payload: JwtPlatformPayload) {
     const accessSecret =
       this.configService.get<string>('JWT_ACCESS_SECRET') ||
