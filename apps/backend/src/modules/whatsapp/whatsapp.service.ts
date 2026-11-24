@@ -389,6 +389,47 @@ export class WhatsAppService {
       });
     }
 
+    // Resolve Meta Cloud API credentials (from .env or database platform integration)
+    const integration = await this.prisma.platformIntegration.findUnique({
+      where: { provider: 'META_WHATSAPP' as any },
+    });
+    const creds = (integration?.credentials as any) || {};
+    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
+    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+
+    let metaMessageId = `wamid_${Date.now()}`;
+    let deliveryStatus = 'SENT';
+
+    if (phoneNumberId && accessToken) {
+      try {
+        const cleanPhone = params.recipientPhone.replace(/[^0-9]/g, '');
+        const metaRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: cleanPhone,
+            type: 'text',
+            text: { preview_url: false, body: content },
+          }),
+        });
+        const metaJson = await metaRes.json();
+        if (metaJson.messages?.[0]?.id) {
+          metaMessageId = metaJson.messages[0].id;
+          deliveryStatus = 'DELIVERED';
+          this.logger.log(`Meta WhatsApp dispatched: ${metaMessageId} to ${cleanPhone}`);
+        } else {
+          this.logger.warn(`Meta API response: ${JSON.stringify(metaJson)}`);
+        }
+      } catch (err: any) {
+        this.logger.error(`Failed to dispatch Meta WhatsApp: ${err.message}`);
+      }
+    }
+
     const log = await this.prisma.whatsAppMessageLog.create({
       data: {
         tenantId: params.tenantId,
@@ -396,12 +437,12 @@ export class WhatsAppService {
         recipientPhone: params.recipientPhone,
         recipientName: params.recipientName,
         direction: 'OUTBOUND',
-        status: 'DELIVERED',
+        status: deliveryStatus as any,
         content,
         templateCode: params.templateCode,
-        metaMessageId: `wamid_${Date.now()}`,
+        metaMessageId,
         sentAt: new Date(),
-        deliveredAt: new Date(),
+        deliveredAt: deliveryStatus === 'DELIVERED' ? new Date() : undefined,
       },
     });
 
@@ -529,15 +570,60 @@ export class WhatsAppService {
   }
 
   /**
-   * Standalone test message
+   * Standalone test message via Meta WhatsApp Cloud API
    */
   async sendTextMessage(recipientPhone: string, text: string) {
     const cleanPhone = recipientPhone.replace(/[^0-9]/g, '');
     this.logger.log(`Sending WhatsApp text message to ${cleanPhone}: "${text}"`);
+
+    const integration = await this.prisma.platformIntegration.findUnique({
+      where: { provider: 'META_WHATSAPP' as any },
+    });
+    const creds = (integration?.credentials as any) || {};
+    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || creds.phoneNumberId;
+    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || creds.accessToken;
+
+    let metaMessageId = `wamid_test_${Date.now()}`;
+    let metaResponse: any = null;
+
+    if (phoneNumberId && accessToken) {
+      try {
+        const res = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: cleanPhone,
+            type: 'text',
+            text: { preview_url: false, body: text },
+          }),
+        });
+
+        metaResponse = await res.json();
+        if (!res.ok) {
+          throw new BadRequestException(
+            metaResponse.error?.message || 'Meta Cloud API call failed. Verify your access token and phone number ID.',
+          );
+        }
+        metaMessageId = metaResponse.messages?.[0]?.id || metaMessageId;
+      } catch (err: any) {
+        if (err instanceof BadRequestException) throw err;
+        throw new BadRequestException(`Meta network error: ${err.message}`);
+      }
+    } else {
+      this.logger.warn('Meta WhatsApp credentials not found. Returning mock confirmation.');
+    }
+
     return {
       success: true,
-      messageId: `wamid_test_${Date.now()}`,
+      messageId: metaMessageId,
       recipient: cleanPhone,
+      mode: phoneNumberId && accessToken ? 'LIVE_META_API' : 'SIMULATION',
+      metaResponse,
     };
   }
 
