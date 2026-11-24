@@ -7,6 +7,7 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { PlatformModulesModule } from './modules/platform-modules/platform-modules.module';
 import { FeaturesModule } from './modules/features/features.module';
+import { PlansModule } from './modules/plans/plans.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { HealthModule } from './modules/health/health.module';
     CategoriesModule,
     PlatformModulesModule,
     FeaturesModule,
+    PlansModule,
     HealthModule,
   ],
 })
