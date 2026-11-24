@@ -10,6 +10,8 @@ import { FeaturesModule } from './modules/features/features.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { ConfigurationModule } from './modules/configuration/configuration.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { SupportModule } from './modules/support/support.module';
+import { AdminsModule } from './modules/admins/admins.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -28,6 +30,8 @@ import { HealthModule } from './modules/health/health.module';
     PlansModule,
     ConfigurationModule,
     IntegrationsModule,
+    SupportModule,
+    AdminsModule,
     HealthModule,
   ],
 })

@@ -13,6 +13,8 @@ import {
   Sliders,
   Network,
   ShieldAlert,
+  Users2,
+  LifeBuoy,
 } from 'lucide-react';
 
 const navigation = [
@@ -23,7 +25,9 @@ const navigation = [
   { name: 'Feature Flags', href: '/features', icon: Flag },
   { name: 'Subscription Plans', href: '/plans', icon: CreditCard },
   { name: 'Dynamic Config', href: '/configurations', icon: Sliders },
-  { name: 'Integrations & Webhooks', href: '/integrations', icon: Network },
+  { name: 'Integrations & Gateways', href: '/integrations', icon: Network },
+  { name: 'Support Sessions', href: '/support', icon: LifeBuoy },
+  { name: 'Platform Team', href: '/admins', icon: Users2 },
   { name: 'Audit Logs', href: '/audit-logs', icon: ShieldAlert },
 ];
 

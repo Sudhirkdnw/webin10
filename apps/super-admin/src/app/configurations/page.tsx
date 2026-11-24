@@ -3,15 +3,23 @@
 import React, { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
-import { Sliders, RotateCcw, Plus } from 'lucide-react';
+import { Sliders, History, RotateCcw, Plus, Clock } from 'lucide-react';
 
 export default function ConfigurationsPage() {
   const [definitions, setDefinitions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Edit Modal
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [editReason, setEditReason] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // History / Rollback Modal
+  const [historyKey, setHistoryKey] = useState<string | null>(null);
+  const [versions, setVersions] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [rollingBack, setRollingBack] = useState<number | null>(null);
 
   const fetchDefinitions = async () => {
     setLoading(true);
@@ -43,6 +51,37 @@ export default function ConfigurationsPage() {
       alert(res.error || 'Failed to update configuration');
     }
     setSaving(false);
+  };
+
+  const openHistoryModal = async (key: string) => {
+    setHistoryKey(key);
+    setLoadingHistory(true);
+    const res = await apiRequest(`/super-admin/configurations/${key}/versions`);
+    if (res.success) {
+      setVersions(res.data || []);
+    }
+    setLoadingHistory(false);
+  };
+
+  const handleRollback = async (key: string, version: number) => {
+    if (!confirm(`Are you sure you want to rollback ${key} to version ${version}?`)) return;
+
+    setRollingBack(version);
+    const res = await apiRequest(`/super-admin/configurations/${key}/rollback`, {
+      method: 'POST',
+      body: JSON.stringify({
+        version,
+        reason: `Administrative 1-click rollback to version ${version}`,
+      }),
+    });
+
+    if (res.success) {
+      setHistoryKey(null);
+      fetchDefinitions();
+    } else {
+      alert(res.error || 'Rollback failed');
+    }
+    setRollingBack(null);
   };
 
   return (
@@ -96,16 +135,25 @@ export default function ConfigurationsPage() {
                       <td className="px-6 py-4 font-mono text-xs text-slate-700 max-w-xs truncate">
                         {currentVal}
                       </td>
-                      <td className="px-6 py-4 text-xs text-slate-500">v{version}</td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-xs font-semibold text-slate-600">v{version}</td>
+                      <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openHistoryModal(def.key)}
+                          className="px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 flex items-center gap-1"
+                          title="View Audit Version History"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                          <span>History</span>
+                        </button>
+
                         <button
                           onClick={() => {
                             setSelectedKey(def.key);
                             setEditValue(currentVal);
                           }}
-                          className="px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200"
+                          className="px-3 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200"
                         >
-                          Edit Value
+                          Edit
                         </button>
                       </td>
                     </tr>
@@ -160,6 +208,69 @@ export default function ConfigurationsPage() {
                     {saving ? 'Saving...' : 'Save & Increment Version'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Version History & Rollback Modal */}
+        {historyKey && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-lg font-bold text-slate-900">Audit Version History</h2>
+                <Clock className="w-4 h-4 text-indigo-600" />
+              </div>
+              <p className="text-xs font-mono text-indigo-600 mb-4">{historyKey}</p>
+
+              {loadingHistory ? (
+                <div className="py-8 text-center text-xs text-slate-400">Loading version history...</div>
+              ) : versions.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">No previous versions recorded.</div>
+              ) : (
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {versions.map((v) => (
+                    <div key={v.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 font-mono">
+                          v{v.version}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {new Date(v.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="text-slate-700 font-mono bg-white p-2 rounded border border-slate-100 mb-2 truncate">
+                        {v.value}
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-500 italic max-w-xs truncate">
+                          &quot;{v.reason || 'No description'}&quot;
+                        </span>
+
+                        <button
+                          onClick={() => handleRollback(historyKey, v.version)}
+                          disabled={rollingBack === v.version}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors disabled:opacity-50"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>{rollingBack === v.version ? 'Rolling back...' : 'Rollback'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4 mt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setHistoryKey(null)}
+                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
