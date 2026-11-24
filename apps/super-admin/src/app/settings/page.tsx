@@ -24,6 +24,12 @@ import {
   Save,
   RotateCcw,
   Cloud,
+  Lock,
+  RefreshCw,
+  MessageSquare,
+  Smartphone,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 type TabKey =
@@ -31,6 +37,7 @@ type TabKey =
   | 'terms'
   | 'google'
   | 'payment'
+  | 'integrations'
   | 'homepage'
   | 'recaptcha'
   | 'social'
@@ -49,7 +56,8 @@ const TABS: TabDefinition[] = [
   { key: 'general', label: 'General', icon: Sliders },
   { key: 'terms', label: 'Terms & Conditions', icon: FileText },
   { key: 'google', label: 'Google Configuration', icon: Globe },
-  { key: 'payment', label: 'Payment Configuration', icon: CreditCard },
+  { key: 'payment', label: 'Payment Settings', icon: CreditCard },
+  { key: 'integrations', label: 'Integrations & Gateways', icon: Network },
   { key: 'homepage', label: 'Homepage Settings', icon: Home },
   { key: 'recaptcha', label: 'Google reCAPTCHA', icon: ShieldCheck },
   { key: 'social', label: 'Social Settings', icon: Share2 },
@@ -82,8 +90,32 @@ export default function SystemSettingsPage() {
   const [testingCloudinary, setTestingCloudinary] = useState(false);
   const [cloudinaryResult, setCloudinaryResult] = useState<any | null>(null);
 
+  // Integrations & Gateways state
+  const [integrationsList, setIntegrationsList] = useState<any[]>([]);
+  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [savingProvider, setSavingProvider] = useState<string | null>(null);
+  const [integrationTestResult, setIntegrationTestResult] = useState<{ provider: string; success: boolean; message: string } | null>(null);
+  const [providerForms, setProviderForms] = useState<Record<string, any>>({
+    RAZORPAY: { isEnabled: true, isTestMode: true, keyId: '', keySecret: '', webhookSecret: '' },
+    CASHFREE: { isEnabled: false, isTestMode: true, appId: '', secretKey: '' },
+    META_WHATSAPP: { isEnabled: false, isTestMode: true, phoneNumberId: '', wabaId: '', accessToken: '', webhookVerifyToken: '' },
+    MSG91: { isEnabled: false, isTestMode: true, authKey: '', senderId: '', dltTemplateId: '' },
+    AWS_SES: { isEnabled: false, isTestMode: true, accessKeyId: '', secretAccessKey: '', region: 'ap-south-1' },
+    RESEND: { isEnabled: false, isTestMode: true, apiKey: '' },
+  });
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
+    // Check URL query tab parameter
+    if (typeof window !== 'undefined') {
+      const urlTab = new URLSearchParams(window.location.search).get('tab');
+      if (urlTab && TABS.some((t) => t.key === urlTab)) {
+        setActiveTab(urlTab as TabKey);
+      }
+    }
     fetchSettings();
+    fetchIntegrations();
   }, []);
 
   async function fetchSettings() {
@@ -105,11 +137,38 @@ export default function SystemSettingsPage() {
     }
   }
 
+  async function fetchIntegrations() {
+    setLoadingIntegrations(true);
+    try {
+      const res = await apiRequest<any[]>('/super-admin/integrations');
+      if (res.success && Array.isArray(res.data)) {
+        setIntegrationsList(res.data);
+        // Populate form defaults from existing integrations
+        setProviderForms((prev) => {
+          const next = { ...prev };
+          for (const item of res.data) {
+            next[item.provider] = {
+              isEnabled: item.isEnabled ?? false,
+              isTestMode: item.isTestMode ?? true,
+              ...(item.maskedCredentials || {}),
+            };
+          }
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load platform integrations catalogue', err);
+    } finally {
+      setLoadingIntegrations(false);
+    }
+  }
+
   function handleTabChange(tab: TabKey) {
     setActiveTab(tab);
     setStatusMsg(null);
     setTestMailResult(null);
     setCloudinaryResult(null);
+    setIntegrationTestResult(null);
     const tabVal = settings?.[tab]?.value || {};
     setFormData({ ...tabVal });
   }
@@ -241,6 +300,67 @@ export default function SystemSettingsPage() {
     }
   }
 
+  // Integration provider helpers
+  function updateProviderField(provider: string, field: string, value: any) {
+    setProviderForms((prev) => ({
+      ...prev,
+      [provider]: {
+        ...(prev[provider] || {}),
+        [field]: value,
+      },
+    }));
+  }
+
+  async function handleSaveIntegration(provider: string) {
+    setSavingProvider(provider);
+    setIntegrationTestResult(null);
+    const form = providerForms[provider] || {};
+    const { isEnabled, isTestMode, ...credentials } = form;
+
+    try {
+      const res = await apiRequest<any>('/super-admin/integrations', {
+        method: 'POST',
+        body: JSON.stringify({
+          provider,
+          isEnabled: Boolean(isEnabled),
+          isTestMode: Boolean(isTestMode),
+          credentials,
+        }),
+      });
+
+      if (res.success) {
+        setStatusMsg({ type: 'success', text: `Saved ${provider} configuration successfully!` });
+        fetchIntegrations();
+      } else {
+        setStatusMsg({ type: 'error', text: res.error || `Failed to save ${provider} gateway` });
+      }
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || `Failed to save ${provider}` });
+    } finally {
+      setSavingProvider(null);
+    }
+  }
+
+  async function handleTestIntegration(provider: string) {
+    setTestingProvider(provider);
+    setIntegrationTestResult(null);
+    try {
+      const res = await apiRequest<any>(`/super-admin/integrations/${provider}/test`, {
+        method: 'POST',
+      });
+      if (res.success) {
+        setIntegrationTestResult({ provider, success: true, message: res.data.message || 'Connection verified successfully!' });
+        fetchIntegrations();
+      } else {
+        setIntegrationTestResult({ provider, success: false, message: res.error || 'Test connection failed' });
+      }
+    } catch (err: any) {
+      setIntegrationTestResult({ provider, success: false, message: err.message || 'Test connection failed' });
+    } finally {
+      setTestingProvider(null);
+    }
+  }
+
   if (loading) {
     return (
       <AdminShell>
@@ -258,7 +378,7 @@ export default function SystemSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform System Settings</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Configure multi-tenant platform baseline defaults, SMTP mailers, payment rails, branding, and dynamic domain rules
+            Configure multi-tenant baseline defaults, payment gateways, WhatsApp & SMS rails, branding, and dynamic domain rules
           </p>
         </div>
 
@@ -583,6 +703,28 @@ export default function SystemSettingsPage() {
                     />
                   </label>
                 </div>
+
+                {/* Bottom Save & Discard Buttons */}
+                <div className="flex items-center gap-3 pt-6 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>Save Settings</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDiscard}
+                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors border border-slate-200"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Discard Changes</span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -623,6 +765,17 @@ export default function SystemSettingsPage() {
                     onChange={(e) => handleFieldChange('refundPolicy', e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Policies'}
+                  </button>
                 </div>
               </div>
             )}
@@ -683,10 +836,21 @@ export default function SystemSettingsPage() {
                     />
                   </div>
                 </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Google Config'}
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* 4. PAYMENT CONFIGURATION TAB */}
+            {/* 4. PAYMENT SETTINGS TAB */}
             {activeTab === 'payment' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -728,42 +892,479 @@ export default function SystemSettingsPage() {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 pt-4 space-y-4">
-                  <h3 className="text-sm font-bold text-slate-900">Payment Gateway Rails</h3>
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm text-slate-900">Razorpay Gateway Integration</span>
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Payment Defaults'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('integrations')}
+                    className="text-xs text-indigo-600 font-semibold hover:underline"
+                  >
+                    Configure Gateway Credentials &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 5. INTEGRATIONS & GATEWAYS TAB (CONSOLIDATED HERE) */}
+            {activeTab === 'integrations' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Payment & Communication Gateways</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configure API keys, webhooks, sandbox mode, and test live connections for payment rails and messaging gateways.
+                  </p>
+                </div>
+
+                {integrationTestResult && (
+                  <div
+                    className={`p-3.5 rounded-xl text-xs flex items-center justify-between border ${
+                      integrationTestResult.success
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-rose-50 border-rose-200 text-rose-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {integrationTestResult.success ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      )}
+                      <span>
+                        <strong>[{integrationTestResult.provider}]:</strong> {integrationTestResult.message}
+                      </span>
+                    </div>
+                    <button onClick={() => setIntegrationTestResult(null)} className="text-xs font-semibold hover:underline">
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {/* 1. RAZORPAY GATEWAY */}
+                <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                        RZP
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm">Razorpay Payment Gateway</h3>
+                        <p className="text-xs text-slate-500">UPI, Cards, NetBanking, Subscriptions &amp; Payment Links</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(providerForms.RAZORPAY?.isTestMode)}
+                          onChange={(e) => updateProviderField('RAZORPAY', 'isTestMode', e.target.checked)}
+                          className="w-4 h-4 rounded text-indigo-600 border-slate-300"
+                        />
+                        <span>Sandbox Mode</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(providerForms.RAZORPAY?.isEnabled)}
+                          onChange={(e) => updateProviderField('RAZORPAY', 'isEnabled', e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 border-slate-300"
+                        />
+                        <span className={providerForms.RAZORPAY?.isEnabled ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
+                          {providerForms.RAZORPAY?.isEnabled ? 'Active' : 'Disabled'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Razorpay Key ID:*
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={Boolean(formData.razorpayEnabled)}
-                        onChange={(e) => handleFieldChange('razorpayEnabled', e.target.checked)}
-                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                        type="text"
+                        value={providerForms.RAZORPAY?.keyId || ''}
+                        onChange={(e) => updateProviderField('RAZORPAY', 'keyId', e.target.value)}
+                        placeholder="rzp_test_..."
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                       />
                     </div>
-                    {formData.razorpayEnabled && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Razorpay Key Secret:*
+                      </label>
+                      <div className="relative">
                         <input
-                          type="text"
-                          value={formData.razorpayKeyId || ''}
-                          onChange={(e) => handleFieldChange('razorpayKeyId', e.target.value)}
-                          placeholder="rzp_live_key_..."
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900"
+                          type={showSecrets.rzpSecret ? 'text' : 'password'}
+                          value={providerForms.RAZORPAY?.keySecret || ''}
+                          onChange={(e) => updateProviderField('RAZORPAY', 'keySecret', e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full bg-white border border-slate-200 rounded-lg pl-3 pr-9 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                         />
-                        <input
-                          type="password"
-                          value={formData.razorpayKeySecret || ''}
-                          onChange={(e) => handleFieldChange('razorpayKeySecret', e.target.value)}
-                          placeholder="Razorpay Secret (••••••••)"
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSecrets((s) => ({ ...s, rzpSecret: !s.rzpSecret }))}
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                        >
+                          {showSecrets.rzpSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
-                    )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Webhook Secret:
+                      </label>
+                      <input
+                        type="password"
+                        value={providerForms.RAZORPAY?.webhookSecret || ''}
+                        onChange={(e) => updateProviderField('RAZORPAY', 'webhookSecret', e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={testingProvider === 'RAZORPAY'}
+                      onClick={() => handleTestIntegration('RAZORPAY')}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${testingProvider === 'RAZORPAY' ? 'animate-spin' : ''}`} />
+                      <span>{testingProvider === 'RAZORPAY' ? 'Testing...' : 'Test Connection'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={savingProvider === 'RAZORPAY'}
+                      onClick={() => handleSaveIntegration('RAZORPAY')}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-xs disabled:opacity-50"
+                    >
+                      {savingProvider === 'RAZORPAY' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>Save Gateway</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. CASHFREE GATEWAY */}
+                <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-purple-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                        CF
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm">Cashfree Payments</h3>
+                        <p className="text-xs text-slate-500">Auto-collect, Instant UPI Payouts &amp; Split Settlements</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(providerForms.CASHFREE?.isTestMode)}
+                          onChange={(e) => updateProviderField('CASHFREE', 'isTestMode', e.target.checked)}
+                          className="w-4 h-4 rounded text-indigo-600 border-slate-300"
+                        />
+                        <span>Sandbox Mode</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(providerForms.CASHFREE?.isEnabled)}
+                          onChange={(e) => updateProviderField('CASHFREE', 'isEnabled', e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 border-slate-300"
+                        />
+                        <span className={providerForms.CASHFREE?.isEnabled ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
+                          {providerForms.CASHFREE?.isEnabled ? 'Active' : 'Disabled'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Cashfree App ID:*
+                      </label>
+                      <input
+                        type="text"
+                        value={providerForms.CASHFREE?.appId || ''}
+                        onChange={(e) => updateProviderField('CASHFREE', 'appId', e.target.value)}
+                        placeholder="CF_app_..."
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Cashfree Secret Key:*
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showSecrets.cfSecret ? 'text' : 'password'}
+                          value={providerForms.CASHFREE?.secretKey || ''}
+                          onChange={(e) => updateProviderField('CASHFREE', 'secretKey', e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full bg-white border border-slate-200 rounded-lg pl-3 pr-9 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSecrets((s) => ({ ...s, cfSecret: !s.cfSecret }))}
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                        >
+                          {showSecrets.cfSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={testingProvider === 'CASHFREE'}
+                      onClick={() => handleTestIntegration('CASHFREE')}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${testingProvider === 'CASHFREE' ? 'animate-spin' : ''}`} />
+                      <span>{testingProvider === 'CASHFREE' ? 'Testing...' : 'Test Connection'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={savingProvider === 'CASHFREE'}
+                      onClick={() => handleSaveIntegration('CASHFREE')}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-xs disabled:opacity-50"
+                    >
+                      {savingProvider === 'CASHFREE' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>Save Gateway</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. META WHATSAPP CLOUD API */}
+                <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm">Meta WhatsApp Cloud API</h3>
+                        <p className="text-xs text-slate-500">Automated membership renewals, payment receipts &amp; class schedules</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(providerForms.META_WHATSAPP?.isTestMode)}
+                          onChange={(e) => updateProviderField('META_WHATSAPP', 'isTestMode', e.target.checked)}
+                          className="w-4 h-4 rounded text-indigo-600 border-slate-300"
+                        />
+                        <span>Sandbox Mode</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(providerForms.META_WHATSAPP?.isEnabled)}
+                          onChange={(e) => updateProviderField('META_WHATSAPP', 'isEnabled', e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 border-slate-300"
+                        />
+                        <span className={providerForms.META_WHATSAPP?.isEnabled ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
+                          {providerForms.META_WHATSAPP?.isEnabled ? 'Active' : 'Disabled'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Phone Number ID:*
+                      </label>
+                      <input
+                        type="text"
+                        value={providerForms.META_WHATSAPP?.phoneNumberId || ''}
+                        onChange={(e) => updateProviderField('META_WHATSAPP', 'phoneNumberId', e.target.value)}
+                        placeholder="103948574..."
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        WhatsApp Business Account ID (WABA ID):*
+                      </label>
+                      <input
+                        type="text"
+                        value={providerForms.META_WHATSAPP?.wabaId || ''}
+                        onChange={(e) => updateProviderField('META_WHATSAPP', 'wabaId', e.target.value)}
+                        placeholder="193847291..."
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        System User Permanent Access Token:*
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showSecrets.waToken ? 'text' : 'password'}
+                          value={providerForms.META_WHATSAPP?.accessToken || ''}
+                          onChange={(e) => updateProviderField('META_WHATSAPP', 'accessToken', e.target.value)}
+                          placeholder="EAA..."
+                          className="w-full bg-white border border-slate-200 rounded-lg pl-3 pr-9 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSecrets((s) => ({ ...s, waToken: !s.waToken }))}
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                        >
+                          {showSecrets.waToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Webhook Verification Token:
+                      </label>
+                      <input
+                        type="text"
+                        value={providerForms.META_WHATSAPP?.webhookVerifyToken || ''}
+                        onChange={(e) => updateProviderField('META_WHATSAPP', 'webhookVerifyToken', e.target.value)}
+                        placeholder="webin10_verify_secret"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={testingProvider === 'META_WHATSAPP'}
+                      onClick={() => handleTestIntegration('META_WHATSAPP')}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${testingProvider === 'META_WHATSAPP' ? 'animate-spin' : ''}`} />
+                      <span>{testingProvider === 'META_WHATSAPP' ? 'Testing...' : 'Test Connection'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={savingProvider === 'META_WHATSAPP'}
+                      onClick={() => handleSaveIntegration('META_WHATSAPP')}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-xs disabled:opacity-50"
+                    >
+                      {savingProvider === 'META_WHATSAPP' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>Save Gateway</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. MSG91 SMS GATEWAY */}
+                <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                        <Smartphone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm">MSG91 Indian SMS Gateway</h3>
+                        <p className="text-xs text-slate-500">DLT approved transactional OTPs and critical alerts</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(providerForms.MSG91?.isEnabled)}
+                          onChange={(e) => updateProviderField('MSG91', 'isEnabled', e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 border-slate-300"
+                        />
+                        <span className={providerForms.MSG91?.isEnabled ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
+                          {providerForms.MSG91?.isEnabled ? 'Active' : 'Disabled'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Auth Key:*
+                      </label>
+                      <input
+                        type="password"
+                        value={providerForms.MSG91?.authKey || ''}
+                        onChange={(e) => updateProviderField('MSG91', 'authKey', e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        DLT Sender ID (6 Chars):*
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={providerForms.MSG91?.senderId || ''}
+                        onChange={(e) => updateProviderField('MSG91', 'senderId', e.target.value.toUpperCase())}
+                        placeholder="WBNTEN"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono uppercase"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Default DLT Template ID:
+                      </label>
+                      <input
+                        type="text"
+                        value={providerForms.MSG91?.dltTemplateId || ''}
+                        onChange={(e) => updateProviderField('MSG91', 'dltTemplateId', e.target.value)}
+                        placeholder="120716..."
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={savingProvider === 'MSG91'}
+                      onClick={() => handleSaveIntegration('MSG91')}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-xs disabled:opacity-50"
+                    >
+                      {savingProvider === 'MSG91' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>Save Gateway</span>
+                    </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* 5. HOMEPAGE SETTINGS TAB */}
+            {/* 6. HOMEPAGE SETTINGS TAB */}
             {activeTab === 'homepage' && (
               <div className="space-y-4">
                 <div>
@@ -842,10 +1443,21 @@ export default function SystemSettingsPage() {
                     />
                   </div>
                 </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Homepage Settings'}
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* 6. GOOGLE RECAPTCHA TAB */}
+            {/* 7. GOOGLE RECAPTCHA TAB */}
             {activeTab === 'recaptcha' && (
               <div className="space-y-4">
                 <label className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
@@ -902,99 +1514,123 @@ export default function SystemSettingsPage() {
                     />
                   </div>
                 </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save reCAPTCHA'}
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* 7. SOCIAL SETTINGS TAB */}
+            {/* 8. SOCIAL SETTINGS TAB */}
             {activeTab === 'social' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Facebook URL:
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.facebookUrl || ''}
-                    onChange={(e) => handleFieldChange('facebookUrl', e.target.value)}
-                    placeholder="https://facebook.com/webin10"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                  />
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Facebook URL:
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.facebookUrl || ''}
+                      onChange={(e) => handleFieldChange('facebookUrl', e.target.value)}
+                      placeholder="https://facebook.com/webin10"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Twitter / X URL:
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.twitterUrl || ''}
+                      onChange={(e) => handleFieldChange('twitterUrl', e.target.value)}
+                      placeholder="https://twitter.com/webin10"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Instagram URL:
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.instagramUrl || ''}
+                      onChange={(e) => handleFieldChange('instagramUrl', e.target.value)}
+                      placeholder="https://instagram.com/webin10"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      LinkedIn URL:
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.linkedinUrl || ''}
+                      onChange={(e) => handleFieldChange('linkedinUrl', e.target.value)}
+                      placeholder="https://linkedin.com/company/webin10"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      YouTube URL:
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.youtubeUrl || ''}
+                      onChange={(e) => handleFieldChange('youtubeUrl', e.target.value)}
+                      placeholder="https://youtube.com/@webin10"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      WhatsApp Support Number:
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.whatsappNumber || ''}
+                      onChange={(e) => handleFieldChange('whatsappNumber', e.target.value)}
+                      placeholder="+917070799200"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Twitter / X URL:
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.twitterUrl || ''}
-                    onChange={(e) => handleFieldChange('twitterUrl', e.target.value)}
-                    placeholder="https://twitter.com/webin10"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Instagram URL:
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.instagramUrl || ''}
-                    onChange={(e) => handleFieldChange('instagramUrl', e.target.value)}
-                    placeholder="https://instagram.com/webin10"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    LinkedIn URL:
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.linkedinUrl || ''}
-                    onChange={(e) => handleFieldChange('linkedinUrl', e.target.value)}
-                    placeholder="https://linkedin.com/company/webin10"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    YouTube URL:
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.youtubeUrl || ''}
-                    onChange={(e) => handleFieldChange('youtubeUrl', e.target.value)}
-                    placeholder="https://youtube.com/@webin10"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    WhatsApp Support Number:
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.whatsappNumber || ''}
-                    onChange={(e) => handleFieldChange('whatsappNumber', e.target.value)}
-                    placeholder="+917070799200"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                  />
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Social Links'}
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* 8. MAIL SETTINGS TAB */}
+            {/* 9. MAIL SETTINGS TAB */}
             {activeTab === 'mail' && (
               <div className="space-y-6">
                 <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 text-xs text-indigo-900 space-y-1">
                   <p className="font-semibold text-indigo-700">Google SMTP / Custom SMTP Support:</p>
                   <p className="text-slate-600">
-                    Use Google SMTP by providing your Gmail address and a 16-character <strong>Google App Password</strong> (from your Google Account Security Settings). All platform notifications & business emails will dispatch through Google SMTP.
+                    Use Google SMTP by providing your Gmail address and a 16-character <strong>Google App Password</strong> (from your Google Account Security Settings). All platform notifications &amp; business emails will dispatch through Google SMTP.
                   </p>
                 </div>
 
@@ -1125,7 +1761,7 @@ export default function SystemSettingsPage() {
                 <div className="border-t border-slate-100 pt-5 space-y-3">
                   <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                     <Send className="w-4 h-4 text-indigo-600" />
-                    <span>Live SMTP Verification & Test Email</span>
+                    <span>Live SMTP Verification &amp; Test Email</span>
                   </h3>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input
@@ -1163,10 +1799,21 @@ export default function SystemSettingsPage() {
                     </div>
                   )}
                 </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Mail Configuration'}
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* 9. CUSTOM DOMAIN TAB */}
+            {/* 10. CUSTOM DOMAIN TAB */}
             {activeTab === 'custom_domain' && (
               <div className="space-y-4">
                 <label className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
@@ -1221,10 +1868,21 @@ export default function SystemSettingsPage() {
                     />
                   </div>
                 </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Custom Domain'}
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* 10. THEME COLOR TAB */}
+            {/* 11. THEME COLOR TAB */}
             {activeTab === 'theme' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1310,10 +1968,21 @@ export default function SystemSettingsPage() {
                     />
                   </div>
                 </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Theme & Branding'}
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* 11. CLOUDINARY MEDIA STORAGE TAB */}
+            {/* 12. CLOUDINARY MEDIA STORAGE TAB */}
             {activeTab === 'cloudinary' && (
               <div className="space-y-6">
                 <div className="p-4 rounded-xl bg-sky-50 border border-sky-100 text-xs text-sky-900 space-y-1">
@@ -1404,30 +2073,19 @@ export default function SystemSettingsPage() {
                     </div>
                   )}
                 </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Cloudinary Settings'}
+                  </button>
+                </div>
               </div>
             )}
-
-            {/* Bottom Save & Discard Buttons */}
-            <div className="flex items-center gap-3 pt-6 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>Save Settings</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDiscard}
-                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors border border-slate-200"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Discard Changes</span>
-              </button>
-            </div>
           </div>
         </div>
 

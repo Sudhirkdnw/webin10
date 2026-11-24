@@ -28,7 +28,6 @@ const navigation = [
   { name: 'Feature Flags', href: '/features', icon: Flag },
   { name: 'Subscription Plans', href: '/plans', icon: CreditCard },
   { name: 'Dynamic Config', href: '/configurations', icon: Sliders },
-  { name: 'Integrations & Gateways', href: '/integrations', icon: Network },
   { name: 'Email Templates', href: '/email-templates', icon: Mail },
   { name: 'System Settings', href: '/settings', icon: Settings },
   { name: 'Support Sessions', href: '/support', icon: LifeBuoy },
