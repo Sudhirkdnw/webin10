@@ -114,18 +114,20 @@ export class BillingController {
   }
 
   /**
-   * Public Webhook Endpoint for Payment Gateways (Razorpay & Stripe)
+   * Public Webhook Endpoint for Payment Gateways (Razorpay, Cashfree & Stripe)
    */
   @Post('webhooks/payment/:provider')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Public Payment Gateway Webhook Listener (Razorpay / Stripe)' })
+  @ApiOperation({ summary: 'Public Payment Gateway Webhook Listener (Razorpay / Cashfree / Stripe)' })
   async handlePaymentWebhook(
     @Param('provider') provider: string,
     @Body() payload: any,
     @Headers('x-razorpay-signature') razorpaySig?: string,
+    @Headers('x-webhook-signature') cashfreeSig?: string,
+    @Headers('x-cashfree-signature') cfSig?: string,
     @Headers('stripe-signature') stripeSig?: string,
   ) {
-    const signature = razorpaySig || stripeSig;
+    const signature = razorpaySig || cashfreeSig || cfSig || stripeSig;
     return this.billingService.handlePaymentWebhook(provider, payload, signature);
   }
 }

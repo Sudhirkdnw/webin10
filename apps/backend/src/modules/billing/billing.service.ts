@@ -337,7 +337,7 @@ export class BillingService {
   /**
    * 6. Renew Tenant Subscription & Auto-Generate Invoice
    */
-  async renewSubscription(subscriptionId: string, adminId: string, ip?: string) {
+  async renewSubscription(subscriptionId: string, adminId: string, ip?: string, paymentMethod: string = 'RAZORPAY', paymentReference?: string) {
     const subscription = await this.prisma.tenantSubscription.findUnique({
       where: { id: subscriptionId },
       include: { plan: true, tenant: true },
@@ -371,10 +371,10 @@ export class BillingService {
         planName: subscription.plan?.name || 'SaaS Renewal',
         amountSubtotal: price,
         taxPercentage: 18,
-        paymentMethod: 'RAZORPAY',
-        paymentReference: `RNW_${Date.now()}`,
+        paymentMethod: paymentMethod,
+        paymentReference: paymentReference || `RNW_${Date.now()}`,
         billingPeriodDays: 30,
-        notes: `Subscription renewed by Super Admin. New expiry: ${newEnd.toLocaleDateString()}`,
+        notes: `Subscription renewed via ${paymentMethod}. New expiry: ${newEnd.toLocaleDateString()}`,
       },
       adminId,
       ip,
@@ -391,6 +391,7 @@ export class BillingService {
         newPeriodEnd: newEnd,
         invoiceNumber: invoice.invoiceNumber,
         amount: invoice.amountTotal,
+        paymentMethod,
       },
       ipAddress: ip,
     });
@@ -403,13 +404,14 @@ export class BillingService {
   }
 
   /**
-   * 7. Payment Gateway Webhook Handler (Razorpay & Stripe)
+   * 7. Payment Gateway Webhook Handler (Razorpay, Cashfree & Stripe)
    */
   async handlePaymentWebhook(provider: string, payload: any, signature?: string) {
-    this.logger.log(`Received ${provider} payment webhook: ${payload?.event || 'generic'}`);
+    const prov = provider.toLowerCase();
+    this.logger.log(`Received ${provider} payment webhook: ${payload?.type || payload?.event || 'generic'}`);
 
-    // If Razorpay webhook
-    if (provider.toLowerCase() === 'razorpay') {
+    // A. RAZORPAY WEBHOOK HANDLER
+    if (prov === 'razorpay') {
       const event = payload?.event;
       if (event === 'payment.captured' || event === 'order.paid') {
         const payment = payload?.payload?.payment?.entity || payload?.payload?.order?.entity;
@@ -419,30 +421,102 @@ export class BillingService {
         const paymentId = payment?.id || `PAY_${Date.now()}`;
 
         if (tenantId) {
-          const tenant = await this.prisma.tenant.findUnique({
-            where: { id: tenantId },
-            include: { subscriptions: { orderBy: { createdAt: 'desc' }, take: 1, include: { plan: true } } },
-          });
-
-          if (tenant) {
-            const sub = tenant.subscriptions[0];
-            if (sub) {
-              await this.renewSubscription(sub.id, 'SYSTEM_WEBHOOK');
-            } else {
-              await this.generateInvoice({
-                tenantId: tenant.id,
-                planName: 'Online Webhook Payment',
-                amountSubtotal: amountRupees / 1.18, // backwards calculate subtotal from 18% inclusive
-                taxPercentage: 18,
-                paymentMethod: 'RAZORPAY',
-                paymentReference: paymentId,
-              });
-            }
-          }
+          await this.processSuccessfulPayment(tenantId, amountRupees, 'RAZORPAY', paymentId);
         }
       }
     }
 
-    return { received: true, timestamp: new Date().toISOString() };
+    // B. CASHFREE PAYMENTS WEBHOOK HANDLER
+    else if (prov === 'cashfree') {
+      const type = payload?.type;
+      const event = payload?.event;
+      // Cashfree PG v3 & legacy webhook events
+      const isSuccess =
+        type === 'PAYMENT_SUCCESS_WEBHOOK' ||
+        type === 'ORDER_PAID_SUCCESS' ||
+        event === 'order_paid' ||
+        payload?.data?.payment?.payment_status === 'SUCCESS' ||
+        payload?.txStatus === 'SUCCESS';
+
+      if (isSuccess) {
+        const order = payload?.data?.order;
+        const payment = payload?.data?.payment;
+        const tags = order?.order_tags || {};
+        
+        const tenantId =
+          tags.tenant_id ||
+          tags.tenantId ||
+          payload?.data?.customer_details?.customer_id ||
+          payload?.orderTags?.tenant_id;
+
+        const amount = Number(
+          payment?.payment_amount ||
+          order?.order_amount ||
+          payload?.orderAmount ||
+          payload?.data?.order?.order_amount ||
+          0
+        );
+
+        const paymentId = String(
+          payment?.cf_payment_id ||
+          payload?.referenceId ||
+          order?.order_id ||
+          `CF_PAY_${Date.now()}`
+        );
+
+        if (tenantId) {
+          await this.processSuccessfulPayment(tenantId, amount, 'CASHFREE', paymentId);
+        }
+      }
+    }
+
+    // C. STRIPE WEBHOOK HANDLER
+    else if (prov === 'stripe') {
+      const eventType = payload?.type;
+      if (eventType === 'checkout.session.completed' || eventType === 'invoice.payment_succeeded') {
+        const session = payload?.data?.object;
+        const tenantId = session?.client_reference_id || session?.metadata?.tenant_id;
+        const amount = (session?.amount_total || session?.amount_paid || 0) / 100;
+        const paymentId = session?.payment_intent || session?.id || `STRIPE_${Date.now()}`;
+
+        if (tenantId) {
+          await this.processSuccessfulPayment(tenantId, amount, 'STRIPE', paymentId);
+        }
+      }
+    }
+
+    return { received: true, provider, timestamp: new Date().toISOString() };
+  }
+
+  /**
+   * Helper: Process successful payment, renew active subscription or issue invoice
+   */
+  private async processSuccessfulPayment(tenantId: string, amount: number, paymentMethod: string, paymentReference: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        subscriptions: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: { plan: true },
+        },
+      },
+    });
+
+    if (!tenant) return;
+
+    const sub = tenant.subscriptions[0];
+    if (sub) {
+      await this.renewSubscription(sub.id, 'WEBHOOK_AUTOMATION', undefined, paymentMethod, paymentReference);
+    } else {
+      await this.generateInvoice({
+        tenantId: tenant.id,
+        planName: `${paymentMethod} Online Subscription`,
+        amountSubtotal: amount > 0 ? Number((amount / 1.18).toFixed(2)) : 1999.00,
+        taxPercentage: 18,
+        paymentMethod: paymentMethod,
+        paymentReference: paymentReference,
+      });
+    }
   }
 }
