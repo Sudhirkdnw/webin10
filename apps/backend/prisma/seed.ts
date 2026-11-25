@@ -403,6 +403,87 @@ async function main() {
       `.trim(),
       bodyText: 'Payment of {{amount_paid}} received for invoice #{{invoice_number}}. Download at {{download_url}}.',
     },
+    {
+      name: 'Gym Member Welcome & Onboarding',
+      slug: 'member_welcome',
+      category: 'ONBOARDING',
+      subject: 'Welcome to {{business_name}}! 🏋️ Your Membership is Active',
+      variables: ['customer_name', 'business_name', 'plan_name', 'expiry_date'],
+      bodyHtml: `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+  <div style="background: linear-gradient(135deg, #059669 0%, #0d9488 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
+    <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">Welcome to {{business_name}}! 🏋️</h1>
+    <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Your fitness transformation journey begins today</p>
+  </div>
+  <div style="padding: 28px 24px;">
+    <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hi <strong>{{customer_name}}</strong>,</p>
+    <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+      We are thrilled to have you with us! Your registration has been confirmed for <strong>{{plan_name}}</strong>.
+    </p>
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <table style="width: 100%; font-size: 13px; color: #334155;">
+        <tr>
+          <td style="padding: 4px 0; color: #64748b;">Active Plan:</td>
+          <td style="padding: 4px 0; font-weight: bold; text-align: right;">{{plan_name}}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #64748b;">Valid Until:</td>
+          <td style="padding: 4px 0; font-weight: bold; text-align: right; color: #059669;">{{expiry_date}}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #64748b;">Locker & Pass:</td>
+          <td style="padding: 4px 0; font-weight: bold; text-align: right;">Reception Assisted</td>
+        </tr>
+      </table>
+    </div>
+    <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+      Remember to check-in at the front desk using your QR pass or face recognition on every visit. See you on the floor!
+    </p>
+    <div style="text-align: center; margin: 28px 0 12px 0;">
+      <a href="https://webin10.in" style="background-color: #059669; color: #ffffff; padding: 12px 30px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block;">Access Digital Member Pass</a>
+    </div>
+  </div>
+  <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+    &copy; {{business_name}} &bull; Powered by Webin10 Business OS
+  </div>
+</div>
+      `.trim(),
+      bodyText: 'Welcome to {{business_name}}! Hi {{customer_name}}, your {{plan_name}} is active until {{expiry_date}}.',
+    },
+    {
+      name: 'Promotional Festival 50% Off Offer',
+      slug: 'festival_offer',
+      category: 'MARKETING',
+      subject: '🔥 Special Festival Offer: 50% OFF on Membership Renewal at {{business_name}}!',
+      variables: ['customer_name', 'business_name', 'plan_name', 'expiry_date'],
+      bodyHtml: `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #f3e8ff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+  <div style="background: linear-gradient(135deg, #7e22ce 0%, #4338ca 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
+    <span style="background-color: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Exclusive Member Privilege</span>
+    <h1 style="margin: 12px 0 0 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">50% OFF Festival Flash Sale! 🎁</h1>
+    <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Lock in your fitness goals at half the price</p>
+  </div>
+  <div style="padding: 28px 24px;">
+    <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Dear <strong>{{customer_name}}</strong>,</p>
+    <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+      To celebrate this festive season, <strong>{{business_name}}</strong> is offering a flat <strong>50% discount</strong> on all Annual Renewals and Personal Training packages!
+    </p>
+    <div style="background: linear-gradient(to right, #faf5ff, #f3e8ff); border: 2px dashed #c084fc; border-radius: 10px; padding: 18px; margin: 24px 0; text-align: center;">
+      <span style="font-size: 12px; font-weight: bold; color: #6b21a8; text-transform: uppercase; letter-spacing: 1px; display: block;">Use Promo Code at Reception:</span>
+      <span style="font-size: 24px; font-weight: 900; color: #7e22ce; letter-spacing: 2px; font-family: monospace; display: block; margin: 6px 0;">FESTIVAL50</span>
+      <span style="font-size: 11px; color: #7e22ce;">Offer valid for the next 7 days only &bull; Terms apply</span>
+    </div>
+    <div style="text-align: center; margin: 28px 0 12px 0;">
+      <a href="https://webin10.in/pay" style="background-color: #7e22ce; color: #ffffff; padding: 14px 34px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 10px rgba(126, 34, 206, 0.3);">Claim 50% Discount Online</a>
+    </div>
+  </div>
+  <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+    &copy; {{business_name}} &bull; Sent via Webin10 Omni-Channel Communications
+  </div>
+</div>
+      `.trim(),
+      bodyText: 'Special Festival Offer: 50% OFF at {{business_name}}! Hi {{customer_name}}, use code FESTIVAL50 to renew now.',
+    },
   ];
 
   for (const template of emailTemplates) {

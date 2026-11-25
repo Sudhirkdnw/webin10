@@ -107,6 +107,9 @@ model Tenant {
   whatsAppCampaigns WhatsAppCampaign[]
   whatsAppLogs    WhatsAppMessageLog[]
   whatsAppAutomations WhatsAppAutomationRule[]
+  emailCampaigns      EmailCampaign[]
+  emailLogs           EmailMessageLog[]
+  emailAutomations    EmailAutomationRule[]
 
   @@index([status])
   @@index([categoryId])
@@ -524,6 +527,8 @@ model EmailTemplate {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  campaigns   EmailCampaign[]
+
   @@map("email_templates")
 }
 
@@ -565,6 +570,7 @@ model Customer {
 
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   whatsAppLogs   WhatsAppMessageLog[]
+  emailLogs      EmailMessageLog[]
 
   @@index([tenantId])
   @@index([phone])
@@ -807,5 +813,113 @@ model PlatformAnnouncement {
   @@index([startsAt, expiresAt])
   @@map("platform_announcements")
 }
+
+// -------------------------------------------------------------
+// 13. OMNI-CHANNEL EMAIL MARKETING & AUTOMATION ENGINE
+// -------------------------------------------------------------
+
+enum EmailMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  FAILED
+  BOUNCED
+}
+
+enum EmailCampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum EmailAutomationEventType {
+  MEMBER_WELCOME
+  FEE_REMINDER_DUE
+  FEE_PAYMENT_SUCCESS
+  MEMBER_ABSENT_ALERT
+  FESTIVAL_OFFER
+  ACCOUNT_VERIFICATION
+  PLATFORM_TENANT_WELCOME
+  PLATFORM_SUBSCRIPTION_INVOICE
+  PLATFORM_PLAN_EXPIRY
+}
+
+model EmailCampaign {
+  id              String              @id @default(uuid()) @db.Uuid
+  tenantId        String?             @map("tenant_id") @db.Uuid
+  name            String
+  templateId      String?             @map("template_id") @db.Uuid
+  subject         String
+  targetSegment   String              @default("ALL_CUSTOMERS") @map("target_segment")
+  contentHtml     String?             @map("content_html") @db.Text
+  scheduledAt     DateTime?           @map("scheduled_at")
+  status          EmailCampaignStatus @default(DRAFT)
+  totalCount      Int                 @default(0) @map("total_count")
+  sentCount       Int                 @default(0) @map("sent_count")
+  deliveredCount  Int                 @default(0) @map("delivered_count")
+  openedCount     Int                 @default(0) @map("opened_count")
+  failedCount     Int                 @default(0) @map("failed_count")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  tenant          Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template        EmailTemplate?      @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  logs            EmailMessageLog[]
+
+  @@index([tenantId])
+  @@map("email_campaigns")
+}
+
+model EmailMessageLog {
+  id              String             @id @default(uuid()) @db.Uuid
+  tenantId        String?            @map("tenant_id") @db.Uuid
+  campaignId      String?            @map("campaign_id") @db.Uuid
+  customerId      String?            @map("customer_id") @db.Uuid
+  recipientEmail  String             @map("recipient_email")
+  recipientName   String?            @map("recipient_name")
+  subject         String
+  contentHtml     String?            @map("content_html") @db.Text
+  templateCode    String?            @map("template_code")
+  status          EmailMessageStatus @default(SENT)
+  errorMessage    String?            @map("error_message")
+  messageId       String?            @map("message_id")
+  sentAt          DateTime           @default(now()) @map("sent_at")
+  deliveredAt     DateTime?          @map("delivered_at")
+  openedAt        DateTime?          @map("opened_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  tenant          Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign        EmailCampaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  customer        Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([recipientEmail])
+  @@index([status])
+  @@map("email_message_logs")
+}
+
+model EmailAutomationRule {
+  id            String                   @id @default(uuid()) @db.Uuid
+  tenantId      String?                  @map("tenant_id") @db.Uuid
+  eventType     EmailAutomationEventType @map("event_type")
+  name          String
+  isEnabled     Boolean                  @default(true) @map("is_enabled")
+  templateCode  String                   @map("template_code")
+  subject       String?
+  triggerTiming Int                      @default(0) @map("trigger_timing")
+  parameters    Json?
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+
+  tenant        Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("email_automation_rules")
+}
+
 
 

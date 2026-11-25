@@ -20,6 +20,7 @@ import {
   X,
   ShieldAlert,
   LogOut,
+  Mail,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
 import { AnnouncementBanner } from './announcement-banner';
@@ -42,6 +43,12 @@ export function BusinessShell({ children }: BusinessShellProps) {
       icon: MessageSquare,
       highlight: true,
       badge: 'Live Auto',
+    },
+    {
+      name: 'Email Hub',
+      href: '/email',
+      icon: Mail,
+      badge: 'New',
     },
     { name: 'Memberships & Plans', href: '/memberships', icon: CalendarCheck },
     { name: 'Billing & Invoices', href: '/billing', icon: CreditCard },
