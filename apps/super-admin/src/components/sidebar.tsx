@@ -11,7 +11,6 @@ import {
   Flag,
   CreditCard,
   Sliders,
-  Network,
   ShieldAlert,
   Users2,
   LifeBuoy,
@@ -20,6 +19,7 @@ import {
   Settings,
   MessageSquare,
   Receipt,
+  Activity,
 } from 'lucide-react';
 
 const navigation = [
@@ -30,6 +30,7 @@ const navigation = [
   { name: 'Feature Flags', href: '/features', icon: Flag },
   { name: 'Subscription Plans', href: '/plans', icon: CreditCard },
   { name: 'Revenue & Billing Hub', href: '/billing', icon: Receipt },
+  { name: 'System Telemetry & Health', href: '/system-telemetry', icon: Activity },
   { name: 'WhatsApp & Messaging', href: '/whatsapp-management', icon: MessageSquare },
   { name: 'Dynamic Config', href: '/configurations', icon: Sliders },
   { name: 'Email Templates', href: '/email-templates', icon: Mail },
