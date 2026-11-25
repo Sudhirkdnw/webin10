@@ -27,12 +27,18 @@ interface StaffMember {
   id: string;
   userId: string;
   role: string;
-  createdAt: string;
-  user: {
+  createdAt?: string;
+  joinedAt?: string;
+  name?: string;
+  email?: string;
+  phone?: string | null;
+  isActive?: boolean;
+  user?: {
     id: string;
     email: string;
     phone: string | null;
-    fullName: string;
+    fullName?: string;
+    name?: string;
     isActive: boolean;
   };
 }
@@ -123,6 +129,16 @@ export default function TeamPage() {
     }
   };
 
+  // Safe helper accessors for StaffMember
+  const getMemberName = (m: StaffMember | null) =>
+    m ? m.name || m.user?.fullName || m.user?.name || 'Staff Member' : '';
+  const getMemberEmail = (m: StaffMember | null) => (m ? m.email || m.user?.email || '' : '');
+  const getMemberPhone = (m: StaffMember | null) => (m ? m.phone || m.user?.phone || '' : '');
+  const isMemberActive = (m: StaffMember | null) =>
+    m ? (m.isActive ?? m.user?.isActive ?? true) : false;
+  const getMemberJoinedDate = (m: StaffMember | null) =>
+    m?.createdAt || m?.joinedAt || new Date().toISOString();
+
   // Handle Update Role
   const handleUpdateRole = async () => {
     if (!tenantId || !editingMember) return;
@@ -139,7 +155,7 @@ export default function TeamPage() {
 
       const json = await res.json();
       if (json.success) {
-        setSuccessMsg(`Role updated to ${newRole} for ${editingMember.user.fullName}!`);
+        setSuccessMsg(`Role updated to ${newRole} for ${getMemberName(editingMember)}!`);
         setEditingMember(null);
         await loadMembers();
       } else {
@@ -160,7 +176,8 @@ export default function TeamPage() {
       return;
     }
 
-    if (!confirm(`Are you sure you want to remove ${member.user.fullName} from your business team?`)) {
+    const memberName = getMemberName(member);
+    if (!confirm(`Are you sure you want to remove ${memberName} from your business team?`)) {
       return;
     }
 
@@ -174,7 +191,7 @@ export default function TeamPage() {
 
       const json = await res.json();
       if (json.success) {
-        setSuccessMsg(`Staff member ${member.user.fullName} has been removed.`);
+        setSuccessMsg(`Staff member ${memberName} has been removed.`);
         await loadMembers();
       } else {
         setErrorMsg(json.error?.message || 'Failed to remove member.');
@@ -187,11 +204,15 @@ export default function TeamPage() {
   // Filtered members
   const filtered = members.filter((m) => {
     const q = searchQuery.toLowerCase();
+    const name = getMemberName(m).toLowerCase();
+    const email = getMemberEmail(m).toLowerCase();
+    const phone = getMemberPhone(m);
+    const role = (m.role || '').toLowerCase();
     return (
-      m.user.fullName.toLowerCase().includes(q) ||
-      m.user.email.toLowerCase().includes(q) ||
-      m.role.toLowerCase().includes(q) ||
-      (m.user.phone && m.user.phone.includes(q))
+      name.includes(q) ||
+      email.includes(q) ||
+      role.includes(q) ||
+      phone.includes(q)
     );
   });
 
@@ -275,7 +296,7 @@ export default function TeamPage() {
             <div>
               <span className="text-xs font-semibold text-slate-500">Active Accounts</span>
               <p className="text-2xl font-black text-emerald-600 mt-1">
-                {members.filter((m) => m.user.isActive).length}
+                {members.filter((m) => isMemberActive(m)).length}
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -335,8 +356,13 @@ export default function TeamPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                   {filtered.map((member) => {
+                    const memberName = getMemberName(member);
+                    const memberEmail = getMemberEmail(member);
+                    const memberPhone = getMemberPhone(member);
+                    const memberActive = isMemberActive(member);
+                    const joinedDate = getMemberJoinedDate(member);
                     const initials =
-                      member.user.fullName
+                      memberName
                         .split(' ')
                         .filter(Boolean)
                         .slice(0, 2)
@@ -353,10 +379,10 @@ export default function TeamPage() {
                             </div>
                             <div>
                               <span className="font-extrabold text-slate-900 block text-sm">
-                                {member.user.fullName}
+                                {memberName}
                               </span>
                               <span className="text-[11px] text-slate-400 font-normal">
-                                {member.user.email}
+                                {memberEmail}
                               </span>
                             </div>
                           </div>
@@ -368,10 +394,10 @@ export default function TeamPage() {
                         {/* Contact */}
                         <td className="py-3.5 px-4">
                           <div className="space-y-0.5 text-slate-600">
-                            {member.user.phone ? (
+                            {memberPhone ? (
                               <span className="flex items-center gap-1 font-mono text-[11px]">
                                 <Phone className="w-3 h-3 text-slate-400" />
-                                {member.user.phone}
+                                {memberPhone}
                               </span>
                             ) : (
                               <span className="text-slate-400 text-[11px]">No phone listed</span>
@@ -381,7 +407,7 @@ export default function TeamPage() {
 
                         {/* Joined Date */}
                         <td className="py-3.5 px-4 text-slate-500">
-                          {new Date(member.createdAt).toLocaleDateString('en-IN', {
+                          {new Date(joinedDate).toLocaleDateString('en-IN', {
                             day: 'numeric',
                             month: 'short',
                             year: 'numeric',
@@ -392,12 +418,12 @@ export default function TeamPage() {
                         <td className="py-3.5 px-4 text-center">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              member.user.isActive
+                              memberActive
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-red-100 text-red-800'
                             }`}
                           >
-                            {member.user.isActive ? 'Active' : 'Inactive'}
+                            {memberActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
 
@@ -545,7 +571,7 @@ export default function TeamPage() {
               <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-indigo-400" />
-                  <span className="font-bold text-sm">Update Role: {editingMember.user.fullName}</span>
+                  <span className="font-bold text-sm">Update Role: {getMemberName(editingMember)}</span>
                 </div>
                 <button
                   onClick={() => setEditingMember(null)}

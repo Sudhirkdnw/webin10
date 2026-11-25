@@ -418,6 +418,15 @@ export class TenantSelfService {
       role: m.role,
       isActive: m.isActive,
       joinedAt: m.joinedAt,
+      createdAt: m.joinedAt,
+      user: {
+        id: m.user.id,
+        email: m.user.email,
+        phone: m.user.phone,
+        name: m.user.name,
+        fullName: m.user.name,
+        isActive: m.isActive,
+      },
     }));
   }
 
