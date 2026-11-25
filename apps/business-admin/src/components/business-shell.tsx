@@ -35,6 +35,20 @@ export function BusinessShell({ children }: BusinessShellProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { tenantId, tenantName, isImpersonating, isReady, exitImpersonation } = useActiveTenant();
+  const [subInfo, setSubInfo] = useState<{ planName: string; status: string; daysRemaining: number } | null>(null);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    const API_BASE = getApiBaseUrl();
+    fetch(`${API_BASE}/tenants/${tenantId}/subscription`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data?.currentSubscription) {
+          setSubInfo(d.data.currentSubscription);
+        }
+      })
+      .catch(() => {});
+  }, [tenantId]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -93,21 +107,6 @@ export function BusinessShell({ children }: BusinessShellProps) {
       </div>
     );
   }
-
-  const [subInfo, setSubInfo] = useState<{ planName: string; status: string; daysRemaining: number } | null>(null);
-
-  useEffect(() => {
-    if (!tenantId) return;
-    const API_BASE = getApiBaseUrl();
-    fetch(`${API_BASE}/tenants/${tenantId}/subscription`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && d.data?.currentSubscription) {
-          setSubInfo(d.data.currentSubscription);
-        }
-      })
-      .catch(() => {});
-  }, [tenantId]);
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
