@@ -28,6 +28,14 @@ export const DEFAULT_GENERAL_SETTINGS = {
   blockEmailDomains: 'tempmail.com, 10minutemail.com, maildrop.cc, throwawaymail.com',
 };
 
+export const DEFAULT_THEME_SETTINGS = {
+  primaryColor: '#00D09C',
+  secondaryColor: '#0F172A',
+  accentColor: '#F59E0B',
+  logoUrl: '',
+  faviconUrl: '',
+};
+
 @Injectable()
 export class SettingsService {
   constructor(
@@ -85,7 +93,56 @@ export class SettingsService {
       };
     }
 
+    // Ensure theme settings always exist with enterprise baseline defaults
+    if (!result.theme) {
+      const createdTheme = await this.prisma.systemSetting.upsert({
+        where: { key: 'theme_settings' },
+        create: {
+          group: 'theme',
+          key: 'theme_settings',
+          value: DEFAULT_THEME_SETTINGS,
+          isPublic: true,
+        },
+        update: {},
+      });
+      result.theme = {
+        id: createdTheme.id,
+        group: 'theme',
+        key: 'theme_settings',
+        value: createdTheme.value,
+        isPublic: true,
+        updatedAt: createdTheme.updatedAt,
+      };
+    } else {
+      result.theme.value = {
+        ...DEFAULT_THEME_SETTINGS,
+        ...(result.theme.value || {}),
+      };
+    }
+
     return result;
+  }
+
+  /**
+   * Get public branding and theme values for login, landing, and client app wrappers
+   */
+  async getPublicBranding() {
+    const [genSetting, themeSetting] = await Promise.all([
+      this.getSettingByGroup('general'),
+      this.getSettingByGroup('theme'),
+    ]);
+
+    const genVal = genSetting?.value || {};
+    const themeVal = themeSetting?.value || {};
+
+    return {
+      appName: genVal.appName || DEFAULT_GENERAL_SETTINGS.appName,
+      logoUrl: themeVal.logoUrl || DEFAULT_THEME_SETTINGS.logoUrl,
+      faviconUrl: themeVal.faviconUrl || DEFAULT_THEME_SETTINGS.faviconUrl,
+      primaryColor: themeVal.primaryColor || DEFAULT_THEME_SETTINGS.primaryColor,
+      secondaryColor: themeVal.secondaryColor || DEFAULT_THEME_SETTINGS.secondaryColor,
+      accentColor: themeVal.accentColor || DEFAULT_THEME_SETTINGS.accentColor,
+    };
   }
 
   /**
@@ -109,6 +166,19 @@ export class SettingsService {
       });
     }
 
+    if (!setting && group === 'theme') {
+      setting = await this.prisma.systemSetting.upsert({
+        where: { key: 'theme_settings' },
+        create: {
+          group: 'theme',
+          key: 'theme_settings',
+          value: DEFAULT_THEME_SETTINGS,
+          isPublic: true,
+        },
+        update: {},
+      });
+    }
+
     if (!setting) {
       throw new NotFoundException(`Settings for group '${group}' not found`);
     }
@@ -116,6 +186,8 @@ export class SettingsService {
     let val = setting.value;
     if (group === 'general') {
       val = { ...DEFAULT_GENERAL_SETTINGS, ...(val as any || {}) };
+    } else if (group === 'theme') {
+      val = { ...DEFAULT_THEME_SETTINGS, ...(val as any || {}) };
     }
 
     return {

@@ -46,21 +46,36 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { appName } = usePlatformSettings();
+  const { appName, logoUrl, primaryColor } = usePlatformSettings();
 
   const brandInitial = appName ? appName.trim().charAt(0).toUpperCase() : 'W';
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800">
       <div className="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950/40">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-600/30">
-            {brandInitial}
-          </div>
-          <div className="overflow-hidden">
-            <h1 className="font-bold text-white leading-none truncate max-w-[150px]">{appName || 'Webin10'}</h1>
-            <span className="text-[10px] tracking-wider text-indigo-400 font-semibold uppercase">Super Admin</span>
-          </div>
+        <div className="flex items-center gap-3 overflow-hidden">
+          {logoUrl ? (
+            <div className="flex items-center gap-2 max-h-10">
+              <img
+                src={logoUrl}
+                alt={appName || 'Platform Logo'}
+                className="max-h-8 max-w-[150px] object-contain rounded"
+              />
+            </div>
+          ) : (
+            <>
+              <div
+                style={{ backgroundColor: primaryColor || '#00D09C' }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-md text-sm shrink-0 transition-colors"
+              >
+                {brandInitial}
+              </div>
+              <div className="overflow-hidden">
+                <h1 className="font-bold text-white leading-none truncate max-w-[145px]">{appName || 'Webin10'}</h1>
+                <span className="text-[10px] tracking-wider text-slate-400 font-semibold uppercase">Super Admin</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -73,9 +88,14 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              style={
+                isActive
+                  ? { backgroundColor: primaryColor || '#00D09C', color: '#ffffff' }
+                  : {}
+              }
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-sm'
+                  ? 'shadow-sm font-semibold'
                   : 'hover:bg-slate-800 hover:text-white text-slate-400'
               }`}
             >

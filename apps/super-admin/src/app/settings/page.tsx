@@ -134,8 +134,59 @@ const STANDARD_LEGAL_TEMPLATES = {
 <p>Approved refunds are credited back to the original payment method (Bank Account, UPI, or Card via Razorpay/Cashfree) within 5 to 7 business days.</p>`,
 };
 
+const THEME_PRESETS = [
+  {
+    name: 'Webin10 Emerald',
+    tag: 'Signature Fintech',
+    primary: '#00D09C',
+    secondary: '#0F172A',
+    accent: '#F59E0B',
+  },
+  {
+    name: 'Enterprise Indigo',
+    tag: 'Corporate SaaS',
+    primary: '#4F46E5',
+    secondary: '#1E1B4B',
+    accent: '#06B6D4',
+  },
+  {
+    name: 'Royal Sapphire',
+    tag: 'Trustworthy Blue',
+    primary: '#2563EB',
+    secondary: '#0F172A',
+    accent: '#38BDF8',
+  },
+  {
+    name: 'Purple SaaS',
+    tag: 'Creative Platform',
+    primary: '#7C3AED',
+    secondary: '#1E1B4B',
+    accent: '#EC4899',
+  },
+  {
+    name: 'Crimson Ember',
+    tag: 'Vibrant Retail',
+    primary: '#E11D48',
+    secondary: '#1C1917',
+    accent: '#F97316',
+  },
+  {
+    name: 'Midnight Dark',
+    tag: 'Cyber Neon',
+    primary: '#0EA5E9',
+    secondary: '#020617',
+    accent: '#10B981',
+  },
+];
+
 export default function SystemSettingsPage() {
-  const { updateSettings: updateGlobalSettings } = usePlatformSettings();
+  const {
+    updateSettings: updateGlobalSettings,
+    updateTheme,
+    appName: currentAppName,
+    logoUrl: currentLogoUrl,
+    primaryColor: currentPrimaryColor,
+  } = usePlatformSettings();
   const [activeTab, setActiveTab] = useState<TabKey>('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -201,6 +252,10 @@ export default function SystemSettingsPage() {
         const generalVal = res.data?.general?.value;
         if (generalVal?.appName) {
           updateGlobalSettings(generalVal);
+        }
+        const themeVal = res.data?.theme?.value;
+        if (themeVal) {
+          updateTheme(themeVal);
         }
         setFormData(activeTab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...currentTabVal } : currentTabVal);
       } else {
@@ -277,6 +332,9 @@ export default function SystemSettingsPage() {
         setFormData(savedVal);
         if (activeTab === 'general') {
           updateGlobalSettings(savedVal);
+        }
+        if (activeTab === 'theme') {
+          updateTheme(savedVal);
         }
         setStatusMsg({ type: 'success', text: `Saved ${activeTab.toUpperCase()} settings successfully!` });
       } else {
@@ -2084,102 +2142,407 @@ export default function SystemSettingsPage() {
               </div>
             )}
 
-            {/* 11. THEME COLOR TAB */}
+            {/* 11. THEME COLOR & BRANDING TAB */}
             {activeTab === 'theme' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Primary Brand Color:
+              <div className="space-y-8">
+                {/* Header Information Card */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50 to-emerald-50 border border-indigo-100 flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-indigo-600" />
+                      100% Dynamic Platform Branding & Theme Engine
+                    </h3>
+                    <p className="text-xs text-slate-600">
+                      Configure your enterprise branding here. Changing colors or uploading a logo updates the entire platform in real time — including the Super Admin sidebar, top navigation, login screen, document titles, browser favicon, and button accents.
+                    </p>
+                  </div>
+                  <span className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white text-indigo-700 border border-indigo-200 shadow-2xs">
+                    Live Reactive
+                  </span>
+                </div>
+
+                {/* 1-Click Curated Presets */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      Curated Enterprise Color Presets
                     </label>
-                    <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-slate-500">Click any palette to auto-populate colors</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {THEME_PRESETS.map((preset) => {
+                      const isSelected =
+                        (formData.primaryColor || '#00D09C').toLowerCase() === preset.primary.toLowerCase() &&
+                        (formData.secondaryColor || '#0F172A').toLowerCase() === preset.secondary.toLowerCase();
+
+                      return (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              primaryColor: preset.primary,
+                              secondaryColor: preset.secondary,
+                              accentColor: preset.accent,
+                            }));
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-indigo-600 bg-indigo-50/50 shadow-sm ring-2 ring-indigo-500/20'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <span
+                                className="w-4 h-4 rounded-full border border-white shadow-xs"
+                                style={{ backgroundColor: preset.primary }}
+                                title="Primary"
+                              />
+                              <span
+                                className="w-4 h-4 rounded-full border border-white shadow-xs"
+                                style={{ backgroundColor: preset.secondary }}
+                                title="Secondary"
+                              />
+                              <span
+                                className="w-4 h-4 rounded-full border border-white shadow-xs"
+                                style={{ backgroundColor: preset.accent }}
+                                title="Accent"
+                              />
+                            </div>
+                            <p className="text-xs font-bold text-slate-900 leading-tight">{preset.name}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">{preset.tag}</p>
+                          </div>
+                          {isSelected && (
+                            <span className="absolute top-2 right-2 text-indigo-600">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Color Pickers & Hex Inputs */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Primary Brand Color:*
+                    </label>
+                    <p className="text-[11px] text-slate-500 mb-2">
+                      Active navigation items, primary buttons & brand initials.
+                    </p>
+                    <div className="flex items-center gap-2">
                       <input
                         type="color"
-                        value={formData.primaryColor || '#4F46E5'}
+                        value={formData.primaryColor || '#00D09C'}
                         onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
-                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-200"
+                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-300 shrink-0"
                       />
                       <input
                         type="text"
-                        value={formData.primaryColor || '#4F46E5'}
+                        value={formData.primaryColor || '#00D09C'}
                         onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
-                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono"
+                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 font-mono font-semibold uppercase"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Secondary Brand Color:
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Secondary Brand Color:*
                     </label>
-                    <div className="flex items-center gap-3">
+                    <p className="text-[11px] text-slate-500 mb-2">
+                      Dark background header, sidebar contrast & secondary buttons.
+                    </p>
+                    <div className="flex items-center gap-2">
                       <input
                         type="color"
                         value={formData.secondaryColor || '#0F172A'}
                         onChange={(e) => handleFieldChange('secondaryColor', e.target.value)}
-                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-200"
+                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-300 shrink-0"
                       />
                       <input
                         type="text"
                         value={formData.secondaryColor || '#0F172A'}
                         onChange={(e) => handleFieldChange('secondaryColor', e.target.value)}
-                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono"
+                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 font-mono font-semibold uppercase"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Accent Color:
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Accent Highlight Color:*
                     </label>
-                    <div className="flex items-center gap-3">
+                    <p className="text-[11px] text-slate-500 mb-2">
+                      Notification indicators, status pings & high-priority tags.
+                    </p>
+                    <div className="flex items-center gap-2">
                       <input
                         type="color"
                         value={formData.accentColor || '#F59E0B'}
                         onChange={(e) => handleFieldChange('accentColor', e.target.value)}
-                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-200"
+                        className="w-10 h-10 rounded-lg bg-transparent cursor-pointer border border-slate-300 shrink-0"
                       />
                       <input
                         type="text"
                         value={formData.accentColor || '#F59E0B'}
                         onChange={(e) => handleFieldChange('accentColor', e.target.value)}
-                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono"
+                        className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 font-mono font-semibold uppercase"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
-                  <div>
+                {/* Logo & Favicon Assets with Upload & Direct URL */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-900">
+                          Platform Logo (Sidebar & Login Header)
+                        </label>
+                        <p className="text-[11px] text-slate-500">Recommended: PNG / SVG with transparent background</p>
+                      </div>
+                      {formData.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => handleFieldChange('logoUrl', '')}
+                          className="text-[11px] text-rose-600 hover:underline font-semibold"
+                        >
+                          Remove Logo
+                        </button>
+                      )}
+                    </div>
+
                     <ImageUploader
-                      label="Platform Logo (Cloudinary CDN)"
+                      label="Upload via Cloudinary Media CDN"
                       value={formData.logoUrl || ''}
                       onChange={(url) => handleFieldChange('logoUrl', url)}
                       folder="branding"
                       aspect="banner"
                     />
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Or Paste Direct Logo Image URL:
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.logoUrl || ''}
+                        onChange={(e) => handleFieldChange('logoUrl', e.target.value)}
+                        placeholder="https://res.cloudinary.com/.../logo.png"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
                   </div>
 
-                  <div>
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-900">
+                          Platform Favicon (Browser Tab Icon)
+                        </label>
+                        <p className="text-[11px] text-slate-500">Recommended: 32x32 or 64x64 PNG / ICO</p>
+                      </div>
+                      {formData.faviconUrl && (
+                        <button
+                          type="button"
+                          onClick={() => handleFieldChange('faviconUrl', '')}
+                          className="text-[11px] text-rose-600 hover:underline font-semibold"
+                        >
+                          Remove Favicon
+                        </button>
+                      )}
+                    </div>
+
                     <ImageUploader
-                      label="Platform Favicon (Cloudinary CDN)"
+                      label="Upload via Cloudinary Media CDN"
                       value={formData.faviconUrl || ''}
                       onChange={(url) => handleFieldChange('faviconUrl', url)}
                       folder="branding"
                       aspect="square"
                     />
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Or Paste Direct Favicon Image URL:
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.faviconUrl || ''}
+                        onChange={(e) => handleFieldChange('faviconUrl', e.target.value)}
+                        placeholder="https://res.cloudinary.com/.../favicon.ico"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
-                  >
-                    {saving ? 'Saving...' : 'Save Theme & Branding'}
-                  </button>
+                {/* REAL-TIME LIVE PLATFORM SIMULATION PREVIEW STUDIO */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden shadow-xl text-white">
+                  <div className="px-5 py-3 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <span className="text-xs font-bold text-slate-300 ml-2 flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                        Live Interactive Platform Branding Simulation
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Real-Time Reactive
+                    </span>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    {/* Simulated Browser Tab */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        1. Simulated Browser Tab & URL Bar:
+                      </span>
+                      <div className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 flex items-center gap-3">
+                        {/* Tab pill */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 max-w-xs truncate shadow-xs">
+                          {formData.faviconUrl ? (
+                            <img src={formData.faviconUrl} alt="Favicon" className="w-3.5 h-3.5 object-contain rounded-xs shrink-0" />
+                          ) : (
+                            <Globe className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                          )}
+                          <span className="truncate font-medium">{settings?.general?.value?.appName || currentAppName || 'Webin10'} | Super Admin</span>
+                        </div>
+                        {/* URL Bar */}
+                        <div className="flex-1 bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-1.5 text-[11px] text-slate-400 flex items-center gap-2 font-mono">
+                          <Lock className="w-3 h-3 text-emerald-400" />
+                          <span>https://admin.yourdomain.com/settings</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Simulated Dashboard Layout */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        2. Simulated Super Admin Shell & Components:
+                      </span>
+                      <div className="rounded-xl border border-slate-800 bg-slate-900 grid grid-cols-1 md:grid-cols-12 overflow-hidden min-h-[160px]">
+                        {/* Sidebar Mockup */}
+                        <div
+                          className="md:col-span-4 p-4 border-r border-slate-800 flex flex-col justify-between"
+                          style={{ backgroundColor: formData.secondaryColor || '#0F172A' }}
+                        >
+                          <div>
+                            {/* Brand Header */}
+                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-white/10">
+                              {formData.logoUrl ? (
+                                <img
+                                  src={formData.logoUrl}
+                                  alt="Logo"
+                                  className="max-h-7 max-w-[110px] object-contain rounded"
+                                />
+                              ) : (
+                                <div
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-white text-xs shadow-xs"
+                                  style={{ backgroundColor: formData.primaryColor || '#00D09C' }}
+                                >
+                                  {(settings?.general?.value?.appName || currentAppName || 'W').charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-xs font-bold text-white leading-tight">
+                                  {settings?.general?.value?.appName || currentAppName || 'Webin10'}
+                                </p>
+                                <p className="text-[9px] text-slate-400 uppercase tracking-wider">Super Admin</p>
+                              </div>
+                            </div>
+
+                            {/* Nav item mockup */}
+                            <div className="space-y-1">
+                              <div
+                                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-xs"
+                                style={{ backgroundColor: formData.primaryColor || '#00D09C' }}
+                              >
+                                <span className="w-2 h-2 rounded-full bg-white" />
+                                <span>Active Navigation</span>
+                              </div>
+                              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white">
+                                <span className="w-2 h-2 rounded-full bg-slate-600" />
+                                <span>Platform Tenants</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <p className="text-[9px] text-slate-400 pt-3 border-t border-white/10">
+                            Enterprise Business OS
+                          </p>
+                        </div>
+
+                        {/* Content Area Mockup */}
+                        <div className="md:col-span-8 p-4 bg-slate-950 flex flex-col justify-between space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-300">Live Component Skinning</span>
+                            <span
+                              className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs"
+                              style={{ backgroundColor: formData.accentColor || '#F59E0B' }}
+                            >
+                              Accent Badge
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              className="px-4 py-2 rounded-lg text-xs font-bold text-white shadow-sm transition-all"
+                              style={{ backgroundColor: formData.primaryColor || '#00D09C' }}
+                            >
+                              Primary Brand Button
+                            </button>
+
+                            <button
+                              type="button"
+                              className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-300 border border-slate-700 bg-slate-900"
+                            >
+                              Secondary Action
+                            </button>
+                          </div>
+
+                          <p className="text-[11px] text-slate-400">
+                            Colors seamlessly adapt across dashboard, login screen, mobile viewport, and emails.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Bar */}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div className="text-xs text-slate-500">
+                    Clicking save updates the platform database and immediately applies your new theme across the UI.
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleDiscard}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-2.5 rounded-lg text-xs shadow-sm transition-colors disabled:opacity-50"
+                    >
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>{saving ? 'Saving...' : 'Save Theme & Branding'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
