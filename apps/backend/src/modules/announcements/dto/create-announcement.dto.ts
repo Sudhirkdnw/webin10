@@ -77,6 +77,16 @@ export class CreateAnnouncementDto {
   @IsOptional()
   ctaUrl?: string;
 
+  @ApiProperty({ description: 'Banner Graphic Image URL (Poster / Hero Banner)', required: false, example: 'https://images.unsplash.com/...' })
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
+
+  @ApiProperty({ description: 'Whether clicking the image/banner opens in a new tab', default: false, required: false })
+  @IsBoolean()
+  @IsOptional()
+  openInNewTab?: boolean;
+
   @ApiProperty({ description: 'Whether the business user can dismiss/close this banner', default: true })
   @IsBoolean()
   @IsOptional()

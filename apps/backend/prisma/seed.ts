@@ -837,22 +837,36 @@ async function main() {
     where: { title: { contains: 'AI Diet Planner' } },
   });
 
+  const announcementData = {
+    title: 'Webin10 is launching AI Diet Planner tonight at 12 AM! 🥗',
+    message: 'We are thrilled to launch the AI Diet & Nutrition Planner for all gyms and fitness studios across India. Enjoy auto-generated calorie charts and macro tracking for your members!',
+    type: 'PROMOTION' as const,
+    displayType: 'TOP_BANNER' as const,
+    targetAudience: 'ALL_BUSINESSES' as const,
+    ctaText: 'Explore AI Feature',
+    ctaUrl: '/customers',
+    imageUrl: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
+    openInNewTab: false,
+    isDismissible: true,
+    isActive: true,
+    priority: 10,
+  };
+
   if (!existingAnnouncement) {
     await prisma.platformAnnouncement.create({
+      data: announcementData,
+    });
+    console.log('✓ Seeded Baseline Platform Announcement Banner with Graphic Image');
+  } else {
+    await prisma.platformAnnouncement.update({
+      where: { id: existingAnnouncement.id },
       data: {
-        title: 'Webin10 is launching AI Diet Planner tonight at 12 AM! 🥗',
-        message: 'We are thrilled to launch the AI Diet & Nutrition Planner for all gyms and fitness studios across India. Enjoy auto-generated calorie charts and macro tracking for your members!',
-        type: 'PROMOTION',
-        displayType: 'TOP_BANNER',
-        targetAudience: 'ALL_BUSINESSES',
-        ctaText: 'Explore AI Feature',
-        ctaUrl: '/customers',
-        isDismissible: true,
-        isActive: true,
-        priority: 10,
+        imageUrl: announcementData.imageUrl,
+        ctaUrl: announcementData.ctaUrl,
+        ctaText: announcementData.ctaText,
       },
     });
-    console.log('✓ Seeded Baseline Platform Announcement Banner');
+    console.log('✓ Updated Baseline Platform Announcement Banner with Graphic Image');
   }
 
   console.log('--- Baseline Seeding Completed Successfully ---');

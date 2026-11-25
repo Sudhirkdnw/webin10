@@ -7,24 +7,21 @@ import {
   Megaphone,
   Plus,
   Search,
-  Filter,
   CheckCircle2,
   AlertTriangle,
   Info,
   Sparkles,
-  Flame,
   Clock,
   Eye,
   Trash2,
   Edit,
   X,
-  ExternalLink,
-  Calendar,
   Building2,
-  Layers,
   ArrowRight,
   ShieldAlert,
   BellRing,
+  Image as ImageIcon,
+  ExternalLink,
 } from 'lucide-react';
 
 interface Announcement {
@@ -38,6 +35,8 @@ interface Announcement {
   targetPlanId: string | null;
   ctaText: string | null;
   ctaUrl: string | null;
+  imageUrl: string | null;
+  openInNewTab: boolean;
   isDismissible: boolean;
   isActive: boolean;
   startsAt: string | null;
@@ -48,6 +47,29 @@ interface Announcement {
   category?: { id: string; name: string; slug: string } | null;
   plan?: { id: string; name: string; slug: string } | null;
 }
+
+const IMAGE_PRESETS = [
+  {
+    name: 'AI Diet Planner',
+    url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
+    type: 'PROMOTION',
+  },
+  {
+    name: 'Festival 50% Off Offer',
+    url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
+    type: 'PROMOTION',
+  },
+  {
+    name: 'Gym Workout & Equipment',
+    url: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80',
+    type: 'INFO',
+  },
+  {
+    name: 'System Maintenance Notice',
+    url: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
+    type: 'WARNING',
+  },
+];
 
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -72,8 +94,10 @@ export default function AnnouncementsPage() {
   const [targetAudience, setTargetAudience] = useState<'ALL_BUSINESSES' | 'SPECIFIC_CATEGORY' | 'SPECIFIC_PLAN'>('ALL_BUSINESSES');
   const [targetCategoryId, setTargetCategoryId] = useState('');
   const [targetPlanId, setTargetPlanId] = useState('');
-  const [ctaText, setCtaText] = useState('Explore Now');
-  const [ctaUrl, setCtaUrl] = useState('/settings');
+  const [ctaText, setCtaText] = useState('Explore AI Feature');
+  const [ctaUrl, setCtaUrl] = useState('/customers');
+  const [imageUrl, setImageUrl] = useState('');
+  const [openInNewTab, setOpenInNewTab] = useState(false);
   const [isDismissible, setIsDismissible] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [startsAt, setStartsAt] = useState('');
@@ -110,8 +134,8 @@ export default function AnnouncementsPage() {
 
   const handleOpenCreateModal = () => {
     setEditingId(null);
-    setTitle('Webin10 AI Diet Planner Launch! 🥗');
-    setMessage('We are thrilled to launch AI Diet Planner tonight at 12 AM for all gym partners. Enjoy auto-generated calorie and macro charts for your members!');
+    setTitle('Webin10 is launching AI Diet Planner tonight at 12 AM! 🥗');
+    setMessage('We are thrilled to launch the AI Diet & Nutrition Planner for all gyms across India. Auto-generated macro and calorie plans for your members!');
     setType('PROMOTION');
     setDisplayType('TOP_BANNER');
     setTargetAudience('ALL_BUSINESSES');
@@ -119,6 +143,8 @@ export default function AnnouncementsPage() {
     setTargetPlanId('');
     setCtaText('Explore AI Feature');
     setCtaUrl('/customers');
+    setImageUrl('https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80');
+    setOpenInNewTab(false);
     setIsDismissible(true);
     setIsActive(true);
     setStartsAt('');
@@ -139,6 +165,8 @@ export default function AnnouncementsPage() {
     setTargetPlanId(item.targetPlanId || '');
     setCtaText(item.ctaText || '');
     setCtaUrl(item.ctaUrl || '');
+    setImageUrl(item.imageUrl || '');
+    setOpenInNewTab(item.openInNewTab || false);
     setIsDismissible(item.isDismissible);
     setIsActive(item.isActive);
     setStartsAt(item.startsAt ? item.startsAt.slice(0, 16) : '');
@@ -163,6 +191,8 @@ export default function AnnouncementsPage() {
       targetPlanId: targetAudience === 'SPECIFIC_PLAN' ? targetPlanId : undefined,
       ctaText: ctaText.trim() ? ctaText.trim() : undefined,
       ctaUrl: ctaUrl.trim() ? ctaUrl.trim() : undefined,
+      imageUrl: imageUrl.trim() ? imageUrl.trim() : undefined,
+      openInNewTab,
       isDismissible,
       isActive,
       startsAt: startsAt ? new Date(startsAt).toISOString() : undefined,
@@ -208,7 +238,6 @@ export default function AnnouncementsPage() {
     }
   };
 
-  // Type styling helpers
   const getTypeBadge = (t: string) => {
     switch (t) {
       case 'PROMOTION':
@@ -273,7 +302,6 @@ export default function AnnouncementsPage() {
     }
   };
 
-  // Banner Live Preview Color Scheme Generator
   const getPreviewBannerStyle = (t: string) => {
     switch (t) {
       case 'PROMOTION':
@@ -315,8 +343,6 @@ export default function AnnouncementsPage() {
   };
 
   const previewStyle = getPreviewBannerStyle(type);
-
-  // Quick stats
   const activeCount = announcements.filter((a) => a.liveStatus === 'active').length;
   const scheduledCount = announcements.filter((a) => a.liveStatus === 'scheduled').length;
 
@@ -332,7 +358,7 @@ export default function AnnouncementsPage() {
             <div>
               <div className="flex items-center gap-2.5">
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Dashboard Announcement Banners & Popups
+                  Dashboard Announcements & Graphical Banners
                 </h1>
                 <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
                   <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
@@ -340,7 +366,7 @@ export default function AnnouncementsPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Broadcast instant promotional banners, festival offers, and critical maintenance notices directly onto gym owner dashboards across India
+                Broadcast instant promotional image banners, festival offers, and clickable posters directly onto gym dashboards
               </p>
             </div>
           </div>
@@ -351,7 +377,7 @@ export default function AnnouncementsPage() {
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Plus className="w-4 h-4" />
-              <span>Broadcast New Announcement</span>
+              <span>Broadcast Image Banner</span>
             </button>
           </div>
         </div>
@@ -382,7 +408,7 @@ export default function AnnouncementsPage() {
 
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
             <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Target Coverage</span>
+              <span>Clickable Link Coverage</span>
               <span className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
                 <Building2 className="w-4 h-4" />
               </span>
@@ -406,7 +432,6 @@ export default function AnnouncementsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -419,7 +444,6 @@ export default function AnnouncementsPage() {
               <option value="inactive">Inactive</option>
             </select>
 
-            {/* Type Filter */}
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
@@ -467,7 +491,21 @@ export default function AnnouncementsPage() {
             <div className="divide-y divide-slate-100">
               {announcements.map((item) => (
                 <div key={item.id} className="p-5 hover:bg-slate-50/70 transition-colors space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    {/* Thumbnail Image (If Present) */}
+                    {item.imageUrl && (
+                      <div className="shrink-0 relative group">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="w-24 h-16 sm:w-32 sm:h-20 object-cover rounded-xl border border-slate-200 shadow-sm"
+                        />
+                        <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono flex items-center gap-0.5">
+                          <ImageIcon className="w-2.5 h-2.5" /> Banner
+                        </span>
+                      </div>
+                    )}
+
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-mono font-semibold px-2 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
@@ -502,7 +540,6 @@ export default function AnnouncementsPage() {
 
                     {/* Action Controls */}
                     <div className="flex items-center gap-2 shrink-0 pt-1">
-                      {/* Live Toggle */}
                       <button
                         onClick={() => handleToggleActive(item.id)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
@@ -515,7 +552,6 @@ export default function AnnouncementsPage() {
                         {item.isActive ? 'Active (ON)' : 'Disabled (OFF)'}
                       </button>
 
-                      {/* Edit Button */}
                       <button
                         onClick={() => handleOpenEditModal(item)}
                         className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -524,7 +560,6 @@ export default function AnnouncementsPage() {
                         <Edit className="w-4 h-4" />
                       </button>
 
-                      {/* Delete Button */}
                       <button
                         onClick={() => handleDelete(item.id, item.title)}
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -537,11 +572,17 @@ export default function AnnouncementsPage() {
 
                   {/* Metadata Footer */}
                   <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-slate-100 font-mono">
-                    {item.ctaText && (
+                    {item.ctaUrl && (
                       <div className="flex items-center gap-1 text-indigo-600 font-medium">
-                        <span>CTA: "{item.ctaText}"</span>
+                        <span>Clickable Link:</span>
                         <ArrowRight className="w-3 h-3" />
-                        <span className="text-slate-500 truncate max-w-[150px]">{item.ctaUrl}</span>
+                        <span className="text-slate-700 truncate max-w-[200px]">{item.ctaUrl}</span>
+                        {item.openInNewTab && <span className="text-[10px] text-slate-400 font-normal">(New Tab)</span>}
+                      </div>
+                    )}
+                    {item.imageUrl && (
+                      <div className="text-emerald-700 font-medium flex items-center gap-1">
+                        <ImageIcon className="w-3 h-3" /> Graphic Poster Linked
                       </div>
                     )}
                     {item.startsAt && (
@@ -552,7 +593,7 @@ export default function AnnouncementsPage() {
                     ) : (
                       <div>No Expiry (Until Disabled)</div>
                     )}
-                    <div>Dismissible: {item.isDismissible ? 'Yes' : 'No (Persistent)'}</div>
+                    <div>Dismissible: {item.isDismissible ? 'Yes' : 'No'}</div>
                   </div>
                 </div>
               ))}
@@ -564,7 +605,6 @@ export default function AnnouncementsPage() {
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex justify-center items-start overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6 py-6 sm:py-10">
             <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              {/* Modal Header */}
               <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
@@ -572,10 +612,10 @@ export default function AnnouncementsPage() {
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-slate-900">
-                      {editingId ? 'Edit Announcement Banner' : 'Create & Broadcast Announcement Banner'}
+                      {editingId ? 'Edit Announcement Banner' : 'Create & Broadcast Graphical Announcement Banner'}
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Instantly alerts all business owners when they visit their dashboard
+                      Upload an eye-catching poster image or banner with an instant clickable redirect link
                     </p>
                   </div>
                 </div>
@@ -587,7 +627,6 @@ export default function AnnouncementsPage() {
                 </button>
               </div>
 
-              {/* Form & Live Preview Grid */}
               <form onSubmit={handleSave} className="p-6 space-y-6">
                 {error && (
                   <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
@@ -601,49 +640,145 @@ export default function AnnouncementsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                       <Eye className="w-3.5 h-3.5 text-purple-600" />
-                      Live Real-Time Preview (What Gym Owners Will See)
+                      Live Real-Time Preview (Clickable Banner on Gym Dashboard)
                     </span>
                     <span className="text-[11px] text-slate-400 font-mono">Updates dynamically as you type</span>
                   </div>
 
-                  <div className={`p-4 rounded-xl border shadow-md transition-all ${previewStyle.wrapper}`}>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-start sm:items-center gap-3 min-w-0">
-                        <div className="p-1.5 rounded-lg shrink-0 mt-0.5 sm:mt-0">
-                          {previewStyle.icon}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-bold tracking-tight text-white">{title || 'Your Announcement Title'}</span>
-                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${previewStyle.badge}`}>
-                              {type}
-                            </span>
+                  {/* If Graphic Banner Image is set */}
+                  {imageUrl ? (
+                    <div className="relative rounded-2xl overflow-hidden border border-purple-500/40 shadow-xl group cursor-pointer transition-all hover:scale-[1.01]">
+                      <img
+                        src={imageUrl}
+                        alt={title || 'Announcement'}
+                        className="w-full h-44 sm:h-52 object-cover"
+                        onError={(e) => {
+                          // Fallback if image link is broken
+                          (e.target as any).src = 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80';
+                        }}
+                      />
+                      {/* Gradient overlay for readability */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent flex flex-col justify-end p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                          <div className="space-y-1 max-w-2xl">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-full ${previewStyle.badge}`}>
+                                {type}
+                              </span>
+                              <span className="text-[11px] text-purple-200 font-medium flex items-center gap-1">
+                                <ExternalLink className="w-3 h-3" /> Click anywhere on banner to open {ctaUrl || 'link'}
+                              </span>
+                            </div>
+                            <h4 className="text-base sm:text-lg font-bold text-white tracking-tight drop-shadow-md">
+                              {title || 'Announcement Title'}
+                            </h4>
+                            <p className="text-xs text-slate-200 line-clamp-2 drop-shadow">
+                              {message || 'Announcement message copy...'}
+                            </p>
                           </div>
-                          <p className="text-xs text-slate-200 mt-0.5 line-clamp-2">
-                            {message || 'Your announcement message will appear here for all business admins...'}
-                          </p>
+
+                          {ctaText && (
+                            <span className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-lg ${previewStyle.button}`}>
+                              <span>{ctaText}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                        {ctaText && (
-                          <span className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${previewStyle.button}`}>
-                            <span>{ctaText}</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </span>
-                        )}
-                        {isDismissible && (
-                          <span className="p-1 text-slate-300 hover:text-white rounded-lg cursor-pointer">
-                            <X className="w-4 h-4" />
-                          </span>
-                        )}
+                      {isDismissible && (
+                        <span className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-lg backdrop-blur-sm">
+                          <X className="w-4 h-4" />
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    /* Text-only banner preview */
+                    <div className={`p-4 rounded-xl border shadow-md transition-all ${previewStyle.wrapper}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                          <div className="p-1.5 rounded-lg shrink-0 mt-0.5 sm:mt-0">
+                            {previewStyle.icon}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-bold tracking-tight text-white">{title || 'Your Announcement Title'}</span>
+                              <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${previewStyle.badge}`}>
+                                {type}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-200 mt-0.5 line-clamp-2">
+                              {message || 'Your announcement message will appear here for all business admins...'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          {ctaText && (
+                            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${previewStyle.button}`}>
+                              <span>{ctaText}</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </span>
+                          )}
+                          {isDismissible && (
+                            <span className="p-1 text-slate-300 hover:text-white rounded-lg cursor-pointer">
+                              <X className="w-4 h-4" />
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Form Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                  {/* Banner Graphic Image URL */}
+                  <div className="md:col-span-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-purple-600" />
+                        Banner Graphic Image URL (Poster / Hero Banner)
+                      </label>
+                      <span className="text-[11px] text-slate-500">Supports Unsplash, Cloudinary, AWS S3, or any image URL</span>
+                    </div>
+
+                    <input
+                      type="url"
+                      placeholder="Paste image URL (e.g. https://images.unsplash.com/... or Cloudinary URL)"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-mono"
+                    />
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="text-[11px] font-semibold text-slate-500">Quick Presets:</span>
+                      {IMAGE_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => {
+                            setImageUrl(preset.url);
+                            setType(preset.type as any);
+                          }}
+                          className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[11px] font-semibold rounded-lg border border-purple-200 transition-colors"
+                        >
+                          + {preset.name}
+                        </button>
+                      ))}
+                      {imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl('')}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-semibold rounded-lg transition-colors"
+                        >
+                          Clear Image
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Title */}
                   <div className="md:col-span-2 space-y-1.5">
                     <label className="text-xs font-bold text-slate-700">Announcement Title *</label>
@@ -662,7 +797,7 @@ export default function AnnouncementsPage() {
                     <label className="text-xs font-bold text-slate-700">Detailed Message Copy *</label>
                     <textarea
                       required
-                      rows={3}
+                      rows={2}
                       placeholder="Enter the full message for gym owners..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
@@ -697,6 +832,31 @@ export default function AnnouncementsPage() {
                       <option value="TOP_BANNER">Sticky Top Dashboard Banner</option>
                       <option value="MODAL_POPUP">Center Modal Dialog (Upon Login)</option>
                     </select>
+                  </div>
+
+                  {/* CTA Link (Clickable Destination) */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Clickable Redirect Link (URL or Internal Path) *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. /customers or /billing or https://partner.webin10.com/offer"
+                      value={ctaUrl}
+                      onChange={(e) => setCtaUrl(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 font-mono"
+                    />
+                  </div>
+
+                  {/* CTA Button Text */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">CTA Button Text (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Upgrade Now, Learn More, Explore AI"
+                      value={ctaText}
+                      onChange={(e) => setCtaText(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                    />
                   </div>
 
                   {/* Target Audience */}
@@ -751,30 +911,6 @@ export default function AnnouncementsPage() {
                     </div>
                   )}
 
-                  {/* CTA Text */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Call to Action Button Text</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Upgrade Now, Learn More, Explore"
-                      value={ctaText}
-                      onChange={(e) => setCtaText(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-                    />
-                  </div>
-
-                  {/* CTA URL */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Call to Action Link / Path</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. /settings/billing or https://..."
-                      value={ctaUrl}
-                      onChange={(e) => setCtaUrl(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-                    />
-                  </div>
-
                   {/* Schedule Starts At */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-700">Schedule Start (Optional)</label>
@@ -797,32 +933,29 @@ export default function AnnouncementsPage() {
                     />
                   </div>
 
-                  {/* Priority & Toggles */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Display Priority (Higher = Top)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={priority}
-                      onChange={(e) => setPriority(Number(e.target.value))}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 font-mono"
-                    />
-                  </div>
+                  {/* Toggles */}
+                  <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={openInNewTab}
+                        onChange={(e) => setOpenInNewTab(e.target.checked)}
+                        className="rounded text-purple-600 focus:ring-purple-500"
+                      />
+                      <span>Open link in new tab when clicked</span>
+                    </label>
 
-                  {/* Checkboxes */}
-                  <div className="flex flex-col justify-end space-y-2 pb-1">
-                    <label className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={isDismissible}
                         onChange={(e) => setIsDismissible(e.target.checked)}
                         className="rounded text-purple-600 focus:ring-purple-500"
                       />
-                      <span>Allow gym owners to dismiss/close this notice</span>
+                      <span>Allow gym owners to close banner</span>
                     </label>
 
-                    <label className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={isActive}

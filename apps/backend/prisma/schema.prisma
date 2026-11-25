@@ -788,6 +788,8 @@ model PlatformAnnouncement {
   targetPlanId     String?                 @map("target_plan_id") @db.Uuid
   ctaText          String?                 @map("cta_text")
   ctaUrl           String?                 @map("cta_url")
+  imageUrl         String?                 @map("image_url")
+  openInNewTab     Boolean                 @default(false) @map("open_in_new_tab")
   isDismissible    Boolean                 @default(true) @map("is_dismissible")
   isActive         Boolean                 @default(true) @map("is_active")
   startsAt         DateTime?               @map("starts_at")

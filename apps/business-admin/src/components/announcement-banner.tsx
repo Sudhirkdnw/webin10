@@ -23,6 +23,8 @@ interface Announcement {
   displayType: 'TOP_BANNER' | 'MODAL_POPUP';
   ctaText: string | null;
   ctaUrl: string | null;
+  imageUrl: string | null;
+  openInNewTab: boolean;
   isDismissible: boolean;
   priority: number;
 }
@@ -79,7 +81,10 @@ export function AnnouncementBanner({ tenantId }: AnnouncementBannerProps) {
     fetchActive();
   }, [tenantId]);
 
-  const handleDismiss = (id: string) => {
+  const handleDismiss = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     setDismissedIds((prev) => {
       const updated = new Set(prev).add(id);
       try {
@@ -145,17 +150,92 @@ export function AnnouncementBanner({ tenantId }: AnnouncementBannerProps) {
     <>
       {/* 1. TOP BANNERS LIST */}
       {activeBanners.length > 0 && (
-        <div className="space-y-2 px-4 sm:px-6 pt-4">
+        <div className="space-y-3 px-4 sm:px-6 pt-4">
           {activeBanners.map((banner) => {
             const style = getStyleForType(banner.type);
+            const target = banner.openInNewTab ? '_blank' : undefined;
+            const rel = banner.openInNewTab ? 'noopener noreferrer' : undefined;
+            const linkHref = banner.ctaUrl || '#';
 
+            // Case A: Rich Graphic Banner Image with Clickable Link
+            if (banner.imageUrl) {
+              return (
+                <div
+                  key={banner.id}
+                  className="relative rounded-2xl overflow-hidden border border-slate-200/80 shadow-md group animate-in slide-in-from-top-2 duration-300"
+                >
+                  <Link
+                    href={linkHref}
+                    target={target}
+                    rel={rel}
+                    className="block relative w-full h-36 sm:h-44 md:h-48 cursor-pointer overflow-hidden"
+                  >
+                    <img
+                      src={banner.imageUrl}
+                      alt={banner.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+
+                    {/* Translucent Bottom Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent flex flex-col justify-end p-4 sm:p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                        <div className="space-y-1 max-w-2xl min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-full ${style.badge}`}>
+                              {banner.type}
+                            </span>
+                            <span className="text-[11px] text-white/90 font-medium flex items-center gap-1">
+                              <ExternalLink className="w-3 h-3 text-purple-300" />
+                              <span>Click banner to open</span>
+                            </span>
+                          </div>
+                          <h4 className="text-base sm:text-lg font-bold text-white tracking-tight drop-shadow-sm truncate">
+                            {banner.title}
+                          </h4>
+                          <p className="text-xs text-slate-200 line-clamp-1 sm:line-clamp-2 drop-shadow">
+                            {banner.message}
+                          </p>
+                        </div>
+
+                        {banner.ctaText && (
+                          <div className="shrink-0 self-start sm:self-end">
+                            <span className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md ${style.button}`}>
+                              <span>{banner.ctaText}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+
+                  {/* Close / Dismiss Button on top-right of image */}
+                  {banner.isDismissible && (
+                    <button
+                      onClick={(e) => handleDismiss(e, banner.id)}
+                      className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/90 text-white rounded-lg backdrop-blur-md transition-all shadow-md z-10"
+                      title="Dismiss notice"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            // Case B: Compact Text Banner
             return (
               <div
                 key={banner.id}
                 className={`p-3.5 sm:p-4 rounded-xl border transition-all animate-in slide-in-from-top-2 duration-300 ${style.wrapper}`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start sm:items-center gap-3 min-w-0">
+                  <Link
+                    href={linkHref}
+                    target={target}
+                    rel={rel}
+                    className="flex items-start sm:items-center gap-3 min-w-0 flex-1 hover:opacity-95"
+                  >
                     <div className="p-1.5 rounded-lg shrink-0 mt-0.5 sm:mt-0">
                       {style.icon}
                     </div>
@@ -172,12 +252,14 @@ export function AnnouncementBanner({ tenantId }: AnnouncementBannerProps) {
                         {banner.message}
                       </p>
                     </div>
-                  </div>
+                  </Link>
 
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    {banner.ctaText && banner.ctaUrl && (
+                    {banner.ctaText && (
                       <Link
-                        href={banner.ctaUrl}
+                        href={linkHref}
+                        target={target}
+                        rel={rel}
                         className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${style.button}`}
                       >
                         <span>{banner.ctaText}</span>
@@ -187,7 +269,7 @@ export function AnnouncementBanner({ tenantId }: AnnouncementBannerProps) {
 
                     {banner.isDismissible && (
                       <button
-                        onClick={() => handleDismiss(banner.id)}
+                        onClick={(e) => handleDismiss(e, banner.id)}
                         className="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
                         title="Dismiss announcement"
                       >
@@ -205,63 +287,93 @@ export function AnnouncementBanner({ tenantId }: AnnouncementBannerProps) {
       {/* 2. MODAL POPUP (If Active & Not Dismissed) */}
       {modalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden p-6 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-purple-50 text-purple-600 border border-purple-100">
-                  <Megaphone className="w-6 h-6 animate-pulse" />
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-                    {modalItem.type} Notice
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden space-y-4 animate-in zoom-in-95 duration-200">
+            {/* Modal Hero Image (if present) */}
+            {modalItem.imageUrl && (
+              <Link
+                href={modalItem.ctaUrl || '#'}
+                target={modalItem.openInNewTab ? '_blank' : undefined}
+                rel={modalItem.openInNewTab ? 'noopener noreferrer' : undefined}
+                onClick={(e) => {
+                  if (modalItem.isDismissible) handleDismiss(e, modalItem.id);
+                }}
+                className="block relative w-full h-44 sm:h-52 overflow-hidden group cursor-pointer"
+              >
+                <img
+                  src={modalItem.imageUrl}
+                  alt={modalItem.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                  <span className="text-[11px] text-white font-medium flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    <ExternalLink className="w-3 h-3 text-purple-300" /> Click poster to open link
                   </span>
-                  <h3 className="text-base font-bold text-slate-900 mt-1">
-                    {modalItem.title}
-                  </h3>
                 </div>
+              </Link>
+            )}
+
+            <div className="p-6 pt-2 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {!modalItem.imageUrl && (
+                    <div className="p-3 rounded-2xl bg-purple-50 text-purple-600 border border-purple-100">
+                      <Megaphone className="w-6 h-6 animate-pulse" />
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                      {modalItem.type} Notice
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900 mt-1">
+                      {modalItem.title}
+                    </h3>
+                  </div>
+                </div>
+
+                {modalItem.isDismissible && (
+                  <button
+                    onClick={(e) => handleDismiss(e, modalItem.id)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
               </div>
 
-              {modalItem.isDismissible && (
-                <button
-                  onClick={() => handleDismiss(modalItem.id)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+                {modalItem.message}
+              </p>
 
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
-              {modalItem.message}
-            </p>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                {modalItem.isDismissible && (
+                  <button
+                    onClick={(e) => handleDismiss(e, modalItem.id)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors"
+                  >
+                    Remind Me Later
+                  </button>
+                )}
 
-            <div className="flex items-center justify-end gap-3 pt-2">
-              {modalItem.isDismissible && (
-                <button
-                  onClick={() => handleDismiss(modalItem.id)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors"
-                >
-                  Remind Me Later
-                </button>
-              )}
-
-              {modalItem.ctaText && modalItem.ctaUrl ? (
-                <Link
-                  href={modalItem.ctaUrl}
-                  onClick={() => handleDismiss(modalItem.id)}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-600/30 transition-all flex items-center gap-2"
-                >
-                  <span>{modalItem.ctaText}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              ) : (
-                <button
-                  onClick={() => handleDismiss(modalItem.id)}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl"
-                >
-                  Got It
-                </button>
-              )}
+                {modalItem.ctaUrl ? (
+                  <Link
+                    href={modalItem.ctaUrl}
+                    target={modalItem.openInNewTab ? '_blank' : undefined}
+                    rel={modalItem.openInNewTab ? 'noopener noreferrer' : undefined}
+                    onClick={(e) => handleDismiss(e, modalItem.id)}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-600/30 transition-all flex items-center gap-2"
+                  >
+                    <span>{modalItem.ctaText || 'Open Link'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ) : (
+                  <button
+                    onClick={(e) => handleDismiss(e, modalItem.id)}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl"
+                  >
+                    Got It
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
