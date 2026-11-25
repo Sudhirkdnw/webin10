@@ -223,6 +223,14 @@ export function BusinessShell({ children }: BusinessShellProps) {
             </div>
 
             <div className="flex items-center gap-3">
+              <Link
+                href="/register"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-all border border-emerald-200"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>+ Register New Business</span>
+              </Link>
+
               {/* NOTE: Regular business owners have NO link/button to Super Admin here! Only pure business notifications & profile */}
               <div className="relative">
                 <button className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 relative">
