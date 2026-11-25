@@ -595,32 +595,6 @@ export default function SystemSettingsPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Affiliation Amount Or Percentage:*
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.affiliationAmount ?? 10}
-                      onChange={(e) => handleFieldChange('affiliationAmount', Number(e.target.value))}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Affiliation Type:
-                    </label>
-                    <select
-                      value={formData.affiliationType || 'Fix Amount'}
-                      onChange={(e) => handleFieldChange('affiliationType', e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="Fix Amount">Fix Amount</option>
-                      <option value="Percentage">Percentage (%)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Timezone:
                     </label>
                     <select
@@ -671,59 +645,6 @@ export default function SystemSettingsPage() {
                     placeholder="tempmail.com, 10minutemail.com, maildrop.cc"
                     className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
                   />
-                </div>
-
-                {/* Toggle Switches */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
-                    <span className="text-sm font-medium text-slate-700">Show Currency Behind</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(formData.showCurrencyBehind)}
-                      onChange={(e) => handleFieldChange('showCurrencyBehind', e.target.checked)}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
-                    <span className="text-sm font-medium text-slate-700">Enable Phone Number Input Validation</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(formData.enablePhoneValidation)}
-                      onChange={(e) => handleFieldChange('enablePhoneValidation', e.target.checked)}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
-                    <span className="text-sm font-medium text-slate-700">Allow to edit vCard URL Alias</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(formData.allowEditVcardAlias)}
-                      onChange={(e) => handleFieldChange('allowEditVcardAlias', e.target.checked)}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
-                    <span className="text-sm font-medium text-slate-700">Hide Decimal Values</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(formData.hideDecimalValues)}
-                      onChange={(e) => handleFieldChange('hideDecimalValues', e.target.checked)}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer md:col-span-2">
-                    <span className="text-sm font-medium text-slate-700">NFC logo required</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(formData.nfcLogoRequired)}
-                      onChange={(e) => handleFieldChange('nfcLogoRequired', e.target.checked)}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                    />
-                  </label>
                 </div>
 
                 {/* Bottom Save & Discard Buttons */}
