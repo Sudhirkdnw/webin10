@@ -1,10 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getSuperAdminUrl } from './api';
-
-export const DEFAULT_TENANT_ID = '1ccc2ab5-30fa-40a4-abc6-557bc6495b8a';
-export const DEFAULT_TENANT_NAME = 'FitZone Club';
+import { getSuperAdminUrl, getApiBaseUrl } from './api';
 
 const STORAGE_KEY_TENANT_ID = 'webin10_impersonate_tenant_id';
 const STORAGE_KEY_TENANT_NAME = 'webin10_impersonate_tenant_name';
@@ -18,8 +15,8 @@ export interface ActiveTenantInfo {
 }
 
 export function useActiveTenant(): ActiveTenantInfo {
-  const [tenantId, setTenantId] = useState<string>(DEFAULT_TENANT_ID);
-  const [tenantName, setTenantName] = useState<string>(DEFAULT_TENANT_NAME);
+  const [tenantId, setTenantId] = useState<string>('');
+  const [tenantName, setTenantName] = useState<string>('');
   const [isImpersonating, setIsImpersonating] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
 
@@ -38,6 +35,7 @@ export function useActiveTenant(): ActiveTenantInfo {
         setTenantId(urlTenantId);
         setTenantName(decodedName);
         setIsImpersonating(true);
+        setIsReady(true);
 
         // Clean up URL query parameters without triggering a re-render/reload
         params.delete('impersonate_tenant');
@@ -50,18 +48,44 @@ export function useActiveTenant(): ActiveTenantInfo {
         const storedName = localStorage.getItem(STORAGE_KEY_TENANT_NAME);
 
         if (storedId) {
-          setTenantId(storedId);
-          setTenantName(storedName || 'Impersonated Workspace');
-          setIsImpersonating(true);
+          // Validate with backend whether this tenant actually exists (has not been deleted)
+          const API_BASE = getApiBaseUrl();
+          fetch(`${API_BASE}/tenants/${storedId}/profile`)
+            .then((r) => r.json())
+            .then((res) => {
+              if (res.success && res.data) {
+                setTenantId(storedId);
+                setTenantName(res.data.name || storedName || 'Business Workspace');
+                setIsImpersonating(true);
+              } else {
+                // Tenant does not exist in DB (was deleted by Super Admin)!
+                console.warn(`Tenant '${storedId}' not found in database. Clearing stale storage.`);
+                localStorage.removeItem(STORAGE_KEY_TENANT_ID);
+                localStorage.removeItem(STORAGE_KEY_TENANT_NAME);
+                setTenantId('');
+                setTenantName('');
+                setIsImpersonating(false);
+              }
+            })
+            .catch(() => {
+              // Network fallback
+              setTenantId(storedId);
+              setTenantName(storedName || '');
+              setIsImpersonating(true);
+            })
+            .finally(() => {
+              setIsReady(true);
+            });
+          return;
         } else {
-          setTenantId(DEFAULT_TENANT_ID);
-          setTenantName(DEFAULT_TENANT_NAME);
+          setTenantId('');
+          setTenantName('');
           setIsImpersonating(false);
+          setIsReady(true);
         }
       }
     } catch (err) {
       console.warn('Failed to parse active tenant from URL/storage:', err);
-    } finally {
       setIsReady(true);
     }
   }, []);

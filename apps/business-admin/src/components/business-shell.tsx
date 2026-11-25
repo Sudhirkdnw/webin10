@@ -33,7 +33,7 @@ interface BusinessShellProps {
 export function BusinessShell({ children }: BusinessShellProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { tenantId, tenantName, isImpersonating, exitImpersonation } = useActiveTenant();
+  const { tenantId, tenantName, isImpersonating, isReady, exitImpersonation } = useActiveTenant();
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -49,6 +49,49 @@ export function BusinessShell({ children }: BusinessShellProps) {
       }
     }
   };
+
+  // Helper for 2-letter initials
+  const initials = tenantName
+    ? tenantName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join('')
+    : 'BZ';
+
+  // If no tenant is active or if the tenant was deleted from the database:
+  if (isReady && !tenantId) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto">
+            <Building2 className="w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-xl font-extrabold text-white">No Active Business Workspace</h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              This workspace has been deleted or expired in the database. Please sign in with your active business credentials or register a new workspace.
+            </p>
+          </div>
+          <div className="space-y-3 pt-2">
+            <Link
+              href="/login"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-2"
+            >
+              <span>Sign In to Your Business</span>
+            </Link>
+            <Link
+              href="/register"
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs transition-all border border-slate-700 flex items-center justify-center gap-2"
+            >
+              <span>Register New Business (14-Day Free Trial)</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -70,14 +113,6 @@ export function BusinessShell({ children }: BusinessShellProps) {
     { name: 'Team & Staff', href: '/team', icon: UserCheck },
     { name: 'Business Settings', href: '/settings', icon: Settings },
   ];
-
-  // Helper for 2-letter initials
-  const initials = tenantName
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join('') || 'BZ';
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
