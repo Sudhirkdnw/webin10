@@ -195,11 +195,6 @@ export class TenantRegistrationService {
       maskedEmail,
       maskedPhone,
       expiresAt,
-      // For effortless developer & local testing when WhatsApp/SMTP are offline:
-      testCredentials: {
-        emailOtp,
-        phoneOtp,
-      },
     };
   }
 
@@ -240,10 +235,6 @@ export class TenantRegistrationService {
     return {
       success: true,
       message: 'New verification codes have been sent.',
-      testCredentials: {
-        emailOtp: pending.emailOtp,
-        phoneOtp: pending.phoneOtp,
-      },
     };
   }
 
@@ -267,14 +258,14 @@ export class TenantRegistrationService {
       throw new BadRequestException('Verification codes have expired. Please request new codes.');
     }
 
-    // Validate Email OTP (or dev bypass 123456)
-    const validEmail = emailOtp.trim() === pending.emailOtp || emailOtp.trim() === '123456';
+    // Validate Email OTP
+    const validEmail = emailOtp.trim() === pending.emailOtp;
     if (!validEmail) {
       throw new BadRequestException('Incorrect Email Verification Code. Please check and try again.');
     }
 
-    // Validate Phone OTP (or dev bypass 123456)
-    const validPhone = phoneOtp.trim() === pending.phoneOtp || phoneOtp.trim() === '123456';
+    // Validate Phone OTP
+    const validPhone = phoneOtp.trim() === pending.phoneOtp;
     if (!validPhone) {
       throw new BadRequestException('Incorrect Mobile/WhatsApp Verification Code. Please check and try again.');
     }
