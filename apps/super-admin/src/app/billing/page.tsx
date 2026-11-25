@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
   Copy,
   Check,
+  X,
 } from 'lucide-react';
 
 export default function BillingRevenueHubPage() {
@@ -84,6 +85,16 @@ export default function BillingRevenueHubPage() {
 
   useEffect(() => {
     loadAllBillingData();
+
+    // Close modals on Escape key press
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setInvoiceModalOpen(false);
+        setManualModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   async function loadAllBillingData() {
@@ -874,8 +885,14 @@ export default function BillingRevenueHubPage() {
 
         {/* INDIAN GST TAX INVOICE PREVIEW MODAL */}
         {invoiceModalOpen && selectedInvoice && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-8">
+          <div
+            onClick={() => setInvoiceModalOpen(false)}
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto cursor-pointer"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-8 cursor-default"
+            >
               {/* Modal Top Actions */}
               <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <div className="flex items-center gap-2">
@@ -889,16 +906,18 @@ export default function BillingRevenueHubPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => window.print()}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5 text-slate-600" />
                     <span>Print Invoice</span>
                   </button>
                   <button
                     onClick={() => setInvoiceModalOpen(false)}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer border border-slate-200 hover:border-rose-200"
+                    title="Close Invoice Preview (Esc)"
                   >
-                    ✕
+                    <X className="w-4 h-4" />
+                    <span>Close</span>
                   </button>
                 </div>
               </div>
@@ -1032,17 +1051,52 @@ export default function BillingRevenueHubPage() {
                   <p>Subject to Gurugram / Delhi Jurisdiction. Thank you for partnering with Webin10 SaaS!</p>
                 </div>
               </div>
+
+              {/* Bottom Actions Footer */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
+                <p className="text-xs text-slate-400">
+                  Tip: Press <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono text-[10px] text-slate-600">Esc</kbd> or click outside to close preview
+                </p>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => window.print()}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print / Save PDF</span>
+                  </button>
+                  <button
+                    onClick={() => setInvoiceModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-rose-100 hover:text-rose-700 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Close Preview</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* MANUAL INVOICE GENERATOR MODAL */}
         {manualModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div
+            onClick={() => setManualModalOpen(false)}
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 cursor-default"
+            >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-900">Generate Official GST Tax Invoice</h3>
-                <button onClick={() => setManualModalOpen(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+                <button
+                  onClick={() => setManualModalOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                  title="Close (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               <form onSubmit={handleCreateManualInvoice} className="space-y-3.5 text-xs">
