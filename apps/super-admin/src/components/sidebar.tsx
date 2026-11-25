@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePlatformSettings } from '@/lib/platform-settings-context';
@@ -55,14 +55,19 @@ interface SidebarProps {
 export function Sidebar({ isOpenOnMobile, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
   const { appName, logoUrl, primaryColor } = usePlatformSettings();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const brandInitial = appName ? appName.trim().charAt(0).toUpperCase() : 'W';
 
   const renderContent = (isMobile = false) => (
     <>
       <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
-        <div className="flex items-center gap-3 overflow-hidden">
-          {logoUrl ? (
+        <div className="flex items-center gap-3 overflow-hidden" suppressHydrationWarning>
+          {mounted && logoUrl ? (
             <img
               src={logoUrl}
               alt={appName || 'Platform Logo'}

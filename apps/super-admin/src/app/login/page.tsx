@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { usePlatformSettings } from '@/lib/platform-settings-context';
 import { apiRequest } from '@/lib/api';
@@ -9,12 +9,17 @@ import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 export default function LoginPage() {
   const { login } = useAuth();
   const { appName, logoUrl, primaryColor } = usePlatformSettings();
+  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState('superadmin@webin10.com');
   const [password, setPassword] = useState('ChangeMeInProduction123!');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaRequired, setMfaRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,8 +58,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center px-4">
       <div className="w-full max-w-md bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-8">
-        <div className="flex items-center justify-center gap-3 mb-6">
-          {logoUrl ? (
+        <div className="flex items-center justify-center gap-3 mb-6" suppressHydrationWarning>
+          {mounted && logoUrl ? (
             <div className="max-h-12 max-w-[180px] flex items-center justify-center overflow-hidden">
               <img
                 src={logoUrl}

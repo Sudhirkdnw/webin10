@@ -92,51 +92,41 @@ const PlatformSettingsContext = createContext<PlatformSettingsContextType>({
 });
 
 export function PlatformSettingsProvider({ children }: { children: React.ReactNode }) {
-  const [general, setGeneral] = useState<GeneralSettings>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('webin10_general_settings');
-      if (cached) {
-        try {
-          return { ...DEFAULT_GENERAL, ...JSON.parse(cached) };
-        } catch {}
-      }
-    }
-    return DEFAULT_GENERAL;
-  });
-
-  const [theme, setTheme] = useState<ThemeSettings>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('webin10_theme_settings');
-      if (cached) {
-        try {
-          return { ...DEFAULT_THEME, ...JSON.parse(cached) };
-        } catch {}
-      }
-    }
-    return DEFAULT_THEME;
-  });
-
+  const [general, setGeneral] = useState<GeneralSettings>(DEFAULT_GENERAL);
+  const [theme, setTheme] = useState<ThemeSettings>(DEFAULT_THEME);
+  const [colorMode, setColorModeState] = useState<ColorMode>('light');
+  const [systemIsDark, setSystemIsDark] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Color Mode state (light | dark | system)
-  const [colorMode, setColorModeState] = useState<ColorMode>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('webin10_color_mode') as ColorMode;
-      if (saved && ['light', 'dark', 'system'].includes(saved)) {
-        return saved;
+  // Load cached settings from localStorage after initial client mount to guarantee 100% hydration match
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const cachedGen = localStorage.getItem('webin10_general_settings');
+      if (cachedGen) {
+        setGeneral((prev) => ({ ...prev, ...JSON.parse(cachedGen) }));
       }
+    } catch {}
+
+    try {
       const cachedTheme = localStorage.getItem('webin10_theme_settings');
       if (cachedTheme) {
-        try {
-          const parsed = JSON.parse(cachedTheme);
-          if (parsed.colorMode) return parsed.colorMode;
-        } catch {}
+        const parsed = JSON.parse(cachedTheme);
+        setTheme((prev) => ({ ...prev, ...parsed }));
+        if (parsed.colorMode) {
+          setColorModeState(parsed.colorMode);
+        }
       }
-    }
-    return 'light';
-  });
+    } catch {}
 
-  const [systemIsDark, setSystemIsDark] = useState(false);
+    try {
+      const savedMode = localStorage.getItem('webin10_color_mode') as ColorMode;
+      if (savedMode && ['light', 'dark', 'system'].includes(savedMode)) {
+        setColorModeState(savedMode);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
