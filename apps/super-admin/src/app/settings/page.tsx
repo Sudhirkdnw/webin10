@@ -586,8 +586,8 @@ export default function SystemSettingsPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform System Settings</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Platform System Settings</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Configure multi-tenant baseline defaults, payment gateways, WhatsApp & SMS rails, branding, and dynamic domain rules
           </p>
         </div>
@@ -617,7 +617,7 @@ export default function SystemSettingsPage() {
         {/* Main Grid: Left Tabs, Right Form Card */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
           {/* Left Vertical Tab Bar */}
-          <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-2.5 shadow-sm space-y-1">
+          <div className="lg:col-span-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 shadow-sm space-y-1">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.key;
@@ -627,11 +627,11 @@ export default function SystemSettingsPage() {
                   onClick={() => handleTabChange(tab.key)}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100 shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 font-semibold border border-indigo-100 dark:border-indigo-800 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`} />
                   <span className="truncate">{tab.label}</span>
                 </button>
               );
@@ -639,7 +639,7 @@ export default function SystemSettingsPage() {
           </div>
 
           {/* Right Tab Content Card */}
-          <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6 text-slate-900 dark:text-slate-100">
             {/* 1. GENERAL TAB */}
             {activeTab === 'general' && (
               <div className="space-y-6">
@@ -2247,21 +2247,21 @@ export default function SystemSettingsPage() {
                       }}
                       className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
                         (formData.colorMode || colorMode) === 'light'
-                          ? 'border-indigo-600 bg-indigo-50/40 shadow-xs ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300'
+                          ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                     >
-                      <div className="p-2 rounded-lg bg-amber-100 text-amber-700 shrink-0">
+                      <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 shrink-0">
                         <Sun className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-slate-900">☀️ Light Mode</p>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">☀️ Light Mode</p>
                           {(formData.colorMode || colorMode) === 'light' && (
-                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600" />
+                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                           Clean white/slate sidebar, high contrast daylight UI, soft crisp borders.
                         </p>
                       </div>
@@ -2276,21 +2276,21 @@ export default function SystemSettingsPage() {
                       }}
                       className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
                         (formData.colorMode || colorMode) === 'dark'
-                          ? 'border-indigo-600 bg-indigo-50/40 shadow-xs ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300'
+                          ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                     >
-                      <div className="p-2 rounded-lg bg-slate-900 text-indigo-400 shrink-0">
+                      <div className="p-2 rounded-lg bg-slate-900 dark:bg-slate-800 text-indigo-400 shrink-0">
                         <Moon className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-slate-900">🌙 Dark Mode</p>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">🌙 Dark Mode</p>
                           {(formData.colorMode || colorMode) === 'dark' && (
-                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600" />
+                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                           Executive obsidian dark slate sidebar, reduced eye strain for night shifts.
                         </p>
                       </div>
@@ -2305,21 +2305,21 @@ export default function SystemSettingsPage() {
                       }}
                       className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
                         (formData.colorMode || colorMode) === 'system'
-                          ? 'border-indigo-600 bg-indigo-50/40 shadow-xs ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300'
+                          ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                     >
-                      <div className="p-2 rounded-lg bg-sky-100 text-sky-700 shrink-0">
+                      <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 shrink-0">
                         <Smartphone className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-slate-900">💻 System Sync</p>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">💻 System Sync</p>
                           {(formData.colorMode || colorMode) === 'system' && (
-                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600" />
+                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                           Automatically switches between Light & Dark based on your operating system setting.
                         </p>
                       </div>

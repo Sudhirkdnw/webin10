@@ -63,27 +63,23 @@ export function Sidebar({ isOpenOnMobile, onCloseMobile }: SidebarProps) {
       <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
         <div className="flex items-center gap-3 overflow-hidden">
           {logoUrl ? (
-            <div className="flex items-center gap-2 max-h-10">
-              <img
-                src={logoUrl}
-                alt={appName || 'Platform Logo'}
-                className="max-h-8 max-w-[150px] object-contain rounded"
-              />
-            </div>
+            <img
+              src={logoUrl}
+              alt={appName || 'Platform Logo'}
+              className="w-8 h-8 max-h-8 max-w-[36px] object-contain rounded-md shrink-0 shadow-xs"
+            />
           ) : (
-            <>
-              <div
-                style={{ backgroundColor: primaryColor || '#00D09C' }}
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-md text-sm shrink-0 transition-colors"
-              >
-                {brandInitial}
-              </div>
-              <div className="overflow-hidden">
-                <h1 className="font-bold text-slate-900 dark:text-white leading-none truncate max-w-[145px]">{appName || 'Webin10'}</h1>
-                <span className="text-[10px] tracking-wider text-slate-500 dark:text-slate-400 font-semibold uppercase">Super Admin</span>
-              </div>
-            </>
+            <div
+              style={{ backgroundColor: primaryColor || '#00D09C' }}
+              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-md text-sm shrink-0 transition-colors"
+            >
+              {brandInitial}
+            </div>
           )}
+          <div className="overflow-hidden min-w-0">
+            <h1 className="font-bold text-slate-900 dark:text-white leading-none truncate max-w-[145px]">{appName || 'Webin10'}</h1>
+            <span className="text-[10px] tracking-wider text-slate-500 dark:text-slate-400 font-semibold uppercase block mt-1">Super Admin</span>
+          </div>
         </div>
 
         {isMobile && onCloseMobile && (

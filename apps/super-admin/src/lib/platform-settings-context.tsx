@@ -153,21 +153,41 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
   const effectiveMode: 'light' | 'dark' =
     colorMode === 'system' ? (systemIsDark ? 'dark' : 'light') : colorMode;
 
-  // Toggle .dark class on <html> document element
-  useEffect(() => {
+  const applyClassMode = useCallback((mode: 'light' | 'dark') => {
     if (typeof window === 'undefined') return;
     const root = document.documentElement;
-    if (effectiveMode === 'dark') {
+    const body = document.body;
+    if (mode === 'dark') {
       root.classList.add('dark');
+      if (body) body.classList.add('dark');
     } else {
       root.classList.remove('dark');
+      if (body) body.classList.remove('dark');
     }
-  }, [effectiveMode]);
+  }, []);
+
+  // Toggle .dark class on <html> document element and body
+  useEffect(() => {
+    applyClassMode(effectiveMode);
+  }, [effectiveMode, applyClassMode]);
 
   const setColorMode = useCallback((mode: ColorMode) => {
     setColorModeState(mode);
     if (typeof window !== 'undefined') {
       localStorage.setItem('webin10_color_mode', mode);
+      const isDark =
+        mode === 'dark' ||
+        (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      applyClassMode(isDark ? 'dark' : 'light');
+
+      // Auto-sync to backend in background if admin token exists
+      const token = localStorage.getItem('webin10_admin_token');
+      if (token) {
+        apiRequest('/super-admin/settings/theme', {
+          method: 'PUT',
+          body: JSON.stringify({ value: { colorMode: mode } }),
+        }).catch(() => {});
+      }
     }
     setTheme((prev) => {
       const next = { ...prev, colorMode: mode };
@@ -176,7 +196,7 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
       }
       return next;
     });
-  }, []);
+  }, [applyClassMode]);
 
   const toggleColorMode = useCallback(() => {
     setColorMode(effectiveMode === 'dark' ? 'light' : 'dark');
