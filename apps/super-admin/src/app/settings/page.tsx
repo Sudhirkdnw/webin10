@@ -5,6 +5,7 @@ import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
 import { ImageUploader } from '@/components/image-uploader';
 import { usePlatformSettings } from '@/lib/platform-settings-context';
+import { RichTextEditor } from '@/components/rich-text-editor';
 import {
   Sliders,
   FileText,
@@ -83,6 +84,56 @@ const DEFAULT_GENERAL_VALUES: Record<string, any> = {
   blockEmailDomains: 'tempmail.com, 10minutemail.com, maildrop.cc, throwawaymail.com',
 };
 
+const STANDARD_LEGAL_TEMPLATES = {
+  terms: `<h1>TERMS AND CONDITIONS</h1>
+<p><strong>Last Updated: October 2026</strong></p>
+<h2>1. Introduction</h2>
+<p>Welcome to <strong>Webin10</strong>.</p>
+<p>These Terms and Conditions ("Terms") govern your access to and use of the Webin10 website, applications, software, APIs, dashboards, integrations, and related services (collectively, the "Service").</p>
+<p>Webin10 is a cloud-based, multi-tenant business management and automation platform that enables businesses to manage their operations, customers, employees, communications, payments, marketing campaigns, reports, and business workflows through a centralized platform.</p>
+<h2>2. Tenant Account & Responsibilities</h2>
+<p>By creating a tenant workspace on Webin10, you represent that you are an authorized representative of your business and have the authority to bind the entity to these Terms.</p>
+<ul>
+  <li>You must maintain the confidentiality of your account credentials and multi-factor authentication (MFA).</li>
+  <li>You are solely responsible for all activities and WhatsApp/Email messages sent from your tenant workspace.</li>
+  <li>You agree not to use the platform for unlawful, fraudulent, or harassing messaging.</li>
+</ul>
+<h2>3. Subscription Fees & Billing</h2>
+<p>Access to Webin10 modules is provided on a recurring subscription basis (Monthly or Annually). All fees are exclusive of applicable Goods and Services Tax (GST 18%) unless stated otherwise.</p>
+<h2>4. WhatsApp & Communication Compliance</h2>
+<p>Users must comply with Meta WhatsApp Cloud API policies and Indian Telecom Regulations (TRAI / DLT) when sending automated broadcast notifications to their gym members.</p>
+<h2>5. Governing Law & Jurisdiction</h2>
+<p>These Terms shall be governed by and construed in accordance with the laws of India, under the jurisdiction of courts in New Delhi / Bihar.</p>`,
+
+  privacy: `<h1>PRIVACY POLICY</h1>
+<p><strong>Last Updated: October 2026</strong></p>
+<h2>1. Overview</h2>
+<p>At <strong>Webin10</strong>, we respect your privacy and are committed to safeguarding the personal data of our business tenants and their end customers in compliance with the Information Technology Act, 2000 and applicable data protection regulations.</p>
+<h2>2. Information We Collect</h2>
+<ul>
+  <li><strong>Account Information:</strong> Business name, owner name, email address, phone number, GSTIN, and billing address.</li>
+  <li><strong>Tenant Operational Data:</strong> Customer rosters, attendance logs, subscription records, and communication logs.</li>
+  <li><strong>Usage & Telemetry:</strong> Log files, browser types, IP addresses, and performance metrics.</li>
+</ul>
+<h2>3. How We Use Information</h2>
+<p>We use your information solely to provide, maintain, and optimize the Webin10 platform, process transactions, dispatch authorized WhatsApp/Email notices, and prevent fraud.</p>
+<h2>4. Data Security</h2>
+<p>All sensitive credentials and database records are encrypted using industry-standard AES-256 and SSL/TLS transmission protocols.</p>`,
+
+  refund: `<h1>REFUND AND CANCELLATION POLICY</h1>
+<p><strong>Last Updated: October 2026</strong></p>
+<h2>1. Subscription Cancellation</h2>
+<p>You may cancel your Webin10 SaaS subscription at any time directly through your Super Admin or Business Admin billing dashboard. Upon cancellation, your workspace will remain active until the end of your current paid billing period.</p>
+<h2>2. Refund Eligibility</h2>
+<ul>
+  <li><strong>New Subscriptions:</strong> We offer a 7-day money-back guarantee for initial annual plan purchases if you are unsatisfied with our platform.</li>
+  <li><strong>Renewal Billing:</strong> Subscriptions that auto-renew are generally non-refundable once the billing cycle begins. Please cancel prior to the renewal date.</li>
+  <li><strong>Usage-Based Add-ons:</strong> Consumed WhatsApp messaging credits and SMS gateway charges are non-refundable.</li>
+</ul>
+<h2>3. Refund Processing</h2>
+<p>Approved refunds are credited back to the original payment method (Bank Account, UPI, or Card via Razorpay/Cashfree) within 5 to 7 business days.</p>`,
+};
+
 export default function SystemSettingsPage() {
   const { updateSettings: updateGlobalSettings } = usePlatformSettings();
   const [activeTab, setActiveTab] = useState<TabKey>('general');
@@ -91,6 +142,10 @@ export default function SystemSettingsPage() {
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Policy tab state (terms | privacy | refund)
+  const [policyTab, setPolicyTab] = useState<'terms' | 'privacy' | 'refund'>('terms');
+  const [previewPolicyModal, setPreviewPolicyModal] = useState(false);
 
   // Modals / Actions state
   const [dbUpgrading, setDbUpgrading] = useState(false);
@@ -783,53 +838,145 @@ export default function SystemSettingsPage() {
               </div>
             )}
 
-            {/* 2. TERMS & CONDITIONS TAB */}
+            {/* 2. TERMS & CONDITIONS / POLICIES TAB (RICH WYSIWYG EDITOR) */}
             {activeTab === 'terms' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Terms & Conditions:*
-                  </label>
-                  <textarea
-                    rows={6}
-                    value={formData.termsAndConditions || ''}
-                    onChange={(e) => handleFieldChange('termsAndConditions', e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                  />
+              <div className="space-y-5">
+                {/* Policy Sub-Navigation & Quick Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setPolicyTab('terms')}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        policyTab === 'terms'
+                          ? 'bg-white text-indigo-700 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Terms & Conditions</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPolicyTab('privacy')}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        policyTab === 'privacy'
+                          ? 'bg-white text-indigo-700 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Privacy Policy</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPolicyTab('refund')}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        policyTab === 'refund'
+                          ? 'bg-white text-indigo-700 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>Refund & Cancellation</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetField =
+                          policyTab === 'terms'
+                            ? 'termsAndConditions'
+                            : policyTab === 'privacy'
+                            ? 'privacyPolicy'
+                            : 'refundPolicy';
+                        handleFieldChange(targetField, STANDARD_LEGAL_TEMPLATES[policyTab]);
+                      }}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                      title="Load standard legally compliant template"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Load Standard Template</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPolicyModal(true)}
+                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                      title="Preview how this policy looks to public users"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Public Preview</span>
+                    </button>
+                  </div>
                 </div>
 
+                {/* Policy Description Header */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Privacy Policy:*
-                  </label>
-                  <textarea
-                    rows={6}
-                    value={formData.privacyPolicy || ''}
-                    onChange={(e) => handleFieldChange('privacyPolicy', e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
-                  />
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {policyTab === 'terms' && 'Master Terms & Conditions of Service'}
+                    {policyTab === 'privacy' && 'Tenant & Customer Data Privacy Policy'}
+                    {policyTab === 'refund' && 'Subscription Refund & Cancellation Guidelines'}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {policyTab === 'terms' && 'Defines the legal relationship between Webin10 SaaS platform and subscribing gym businesses'}
+                    {policyTab === 'privacy' && 'Specifies how personal data, attendance records, and gym communications are protected'}
+                    {policyTab === 'refund' && 'Outlines money-back guarantees, plan cancellations, and refund processing turnaround times'}
+                  </p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Refund & Cancellation Policy:*
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={formData.refundPolicy || ''}
-                    onChange={(e) => handleFieldChange('refundPolicy', e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                {/* Rich WYSIWYG Editor Instance */}
+                {policyTab === 'terms' && (
+                  <RichTextEditor
+                    value={formData.termsAndConditions || STANDARD_LEGAL_TEMPLATES.terms}
+                    onChange={(val) => handleFieldChange('termsAndConditions', val)}
+                    placeholder="Draft your Terms & Conditions..."
+                    minHeight="420px"
                   />
-                </div>
+                )}
 
+                {policyTab === 'privacy' && (
+                  <RichTextEditor
+                    value={formData.privacyPolicy || STANDARD_LEGAL_TEMPLATES.privacy}
+                    onChange={(val) => handleFieldChange('privacyPolicy', val)}
+                    placeholder="Draft your Privacy Policy..."
+                    minHeight="420px"
+                  />
+                )}
+
+                {policyTab === 'refund' && (
+                  <RichTextEditor
+                    value={formData.refundPolicy || STANDARD_LEGAL_TEMPLATES.refund}
+                    onChange={(val) => handleFieldChange('refundPolicy', val)}
+                    placeholder="Draft your Refund & Cancellation Policy..."
+                    minHeight="420px"
+                  />
+                )}
+
+                {/* Action Save Buttons */}
                 <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
                   <button
                     type="button"
                     onClick={handleSave}
                     disabled={saving}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
                   >
-                    {saving ? 'Saving...' : 'Save Policies'}
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>{saving ? 'Saving...' : 'Save All Legal Policies'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDiscard}
+                    disabled={saving}
+                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Discard Changes</span>
                   </button>
                 </div>
               </div>
@@ -2248,6 +2395,59 @@ export default function SystemSettingsPage() {
                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Public Policy Live Preview Modal */}
+        {previewPolicyModal && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 bg-indigo-50 text-indigo-700 rounded-xl">
+                    <FileText className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Public Document Preview: {policyTab === 'terms' ? 'Terms & Conditions' : policyTab === 'privacy' ? 'Privacy Policy' : 'Refund Policy'}
+                    </h3>
+                    <p className="text-xs text-slate-500">Live preview of how this document renders to customers & gym owners</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPreviewPolicyModal(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 text-2xl leading-none font-bold"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="p-8 overflow-y-auto flex-1 bg-white">
+                <div
+                  className="prose prose-slate max-w-none text-slate-800 text-sm leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      policyTab === 'terms'
+                        ? (formData.termsAndConditions || STANDARD_LEGAL_TEMPLATES.terms)
+                        : policyTab === 'privacy'
+                        ? (formData.privacyPolicy || STANDARD_LEGAL_TEMPLATES.privacy)
+                        : (formData.refundPolicy || STANDARD_LEGAL_TEMPLATES.refund),
+                  }}
+                />
+              </div>
+
+              <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                <span className="text-xs text-slate-500">
+                  Tip: Use the WYSIWYG editor toolbar to add headings, bullet lists, or bold text.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPolicyModal(false)}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-xs"
+                >
+                  Back to Editor
                 </button>
               </div>
             </div>
