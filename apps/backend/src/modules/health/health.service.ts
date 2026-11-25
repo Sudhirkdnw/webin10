@@ -5,6 +5,7 @@ import {
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { AuditService } from '@/modules/audit/audit.service';
 import * as os from 'os';
+import * as net from 'net';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -192,37 +193,57 @@ export class HealthService {
     let redisLatencyMs = 0;
     let redisInfo: any = {};
 
-    try {
-      // Connect with 1.2s timeout to avoid blocking if Redis is offline
-      const client = new Redis({
-        host: redisHost,
-        port: redisPort,
-        password: process.env.REDIS_PASSWORD || undefined,
-        connectTimeout: 1200,
-        maxRetriesPerRequest: 1,
-        lazyConnect: true,
-      });
+    // 1. First probe the TCP port directly with a fast timeout (300ms)
+    // to completely prevent ioredis Unhandled Error Events when port 6379 is closed.
+    const isPortOpen = await this.checkTcpPort(redisHost, redisPort, 300);
 
-      const start = Date.now();
-      await client.connect();
-      const ping = await client.ping();
-      redisLatencyMs = Date.now() - start;
+    if (isPortOpen) {
+      let client: Redis | null = null;
+      try {
+        client = new Redis({
+          host: redisHost,
+          port: redisPort,
+          password: process.env.REDIS_PASSWORD || undefined,
+          connectTimeout: 1000,
+          maxRetriesPerRequest: 1,
+          retryStrategy: () => null, // Never retry automatically in background
+          lazyConnect: true,
+        });
 
-      if (ping === 'PONG') {
-        redisStatus = 'HEALTHY';
-        const rawInfo = await client.info('memory');
-        const clientsInfo = await client.info('clients');
+        // Suppress any unhandled error events
+        client.on('error', () => {});
 
-        const memMatch = rawInfo.match(/used_memory_human:([^\r\n]+)/);
-        const clientsMatch = clientsInfo.match(/connected_clients:([^\r\n]+)/);
+        const start = Date.now();
+        await client.connect();
+        const ping = await client.ping();
+        redisLatencyMs = Date.now() - start;
 
+        if (ping === 'PONG') {
+          redisStatus = 'HEALTHY';
+          const rawInfo = await client.info('memory');
+          const clientsInfo = await client.info('clients');
+
+          const memMatch = rawInfo.match(/used_memory_human:([^\r\n]+)/);
+          const clientsMatch = clientsInfo.match(/connected_clients:([^\r\n]+)/);
+
+          redisInfo = {
+            usedMemory: memMatch ? memMatch[1] : 'N/A',
+            connectedClients: clientsMatch ? parseInt(clientsMatch[1], 10) : 1,
+          };
+        }
+      } catch (e: any) {
+        redisStatus = 'OFFLINE';
         redisInfo = {
-          usedMemory: memMatch ? memMatch[1] : 'N/A',
-          connectedClients: clientsMatch ? parseInt(clientsMatch[1], 10) : 1,
+          message: 'Redis port reached but ping failed (Using resilient in-memory fallback)',
         };
+      } finally {
+        if (client) {
+          try {
+            client.disconnect();
+          } catch {}
+        }
       }
-      await client.quit();
-    } catch (e: any) {
+    } else {
       redisStatus = 'OFFLINE';
       redisInfo = {
         message: 'Redis server is not listening on port 6379 (Using resilient in-memory fallback)',
@@ -374,5 +395,37 @@ export class HealthService {
     if (h > 0 || d > 0) parts.push(`${h}h`);
     parts.push(`${m}m`);
     return parts.join(' ');
+  }
+
+  private checkTcpPort(host: string, port: number, timeoutMs = 300): Promise<boolean> {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(timeoutMs);
+
+      const cleanup = () => {
+        socket.removeAllListeners();
+        socket.destroy();
+      };
+
+      socket.once('connect', () => {
+        cleanup();
+        resolve(true);
+      });
+      socket.once('timeout', () => {
+        cleanup();
+        resolve(false);
+      });
+      socket.once('error', () => {
+        cleanup();
+        resolve(false);
+      });
+
+      try {
+        socket.connect(port, host);
+      } catch {
+        cleanup();
+        resolve(false);
+      }
+    });
   }
 }
