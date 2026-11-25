@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function ProfilePage() {
-  const { user: authUser, login } = useAuth();
+  const { user: authUser, updateUser } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,9 +70,8 @@ export default function ProfilePage() {
 
     if (res.success) {
       setNameSuccess(true);
-      if (authUser) {
-        const token = localStorage.getItem('webin10_admin_token') || '';
-        login(token, { ...authUser, name: res.data.name });
+      if (res.data?.name) {
+        updateUser({ name: res.data.name, avatarUrl: res.data.avatarUrl || avatarUrl });
       }
       setTimeout(() => setNameSuccess(false), 3000);
     } else {

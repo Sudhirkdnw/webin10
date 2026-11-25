@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { usePlatformSettings } from '@/lib/platform-settings-context';
 import {
   LayoutDashboard,
   Building2,
@@ -45,16 +46,19 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { appName } = usePlatformSettings();
+
+  const brandInitial = appName ? appName.trim().charAt(0).toUpperCase() : 'W';
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800">
       <div className="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950/40">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-600/30">
-            W
+            {brandInitial}
           </div>
-          <div>
-            <h1 className="font-bold text-white leading-none">Webin10</h1>
+          <div className="overflow-hidden">
+            <h1 className="font-bold text-white leading-none truncate max-w-[150px]">{appName || 'Webin10'}</h1>
             <span className="text-[10px] tracking-wider text-indigo-400 font-semibold uppercase">Super Admin</span>
           </div>
         </div>
@@ -83,7 +87,7 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-slate-800 text-xs text-slate-500">
-        <p>Webin10 SaaS Platform v1.0</p>
+        <p>{appName || 'Webin10'} SaaS Platform v1.0</p>
         <p className="text-[10px] text-slate-600">Production Baseline</p>
       </div>
     </aside>

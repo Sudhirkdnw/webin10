@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
 import { ImageUploader } from '@/components/image-uploader';
+import { usePlatformSettings } from '@/lib/platform-settings-context';
 import {
   Sliders,
   FileText,
@@ -83,6 +84,7 @@ const DEFAULT_GENERAL_VALUES: Record<string, any> = {
 };
 
 export default function SystemSettingsPage() {
+  const { updateSettings: updateGlobalSettings } = usePlatformSettings();
   const [activeTab, setActiveTab] = useState<TabKey>('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -141,6 +143,10 @@ export default function SystemSettingsPage() {
       if (res.success) {
         setSettings(res.data || {});
         const currentTabVal = res.data?.[activeTab]?.value || {};
+        const generalVal = res.data?.general?.value;
+        if (generalVal?.appName) {
+          updateGlobalSettings(generalVal);
+        }
         setFormData(activeTab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...currentTabVal } : currentTabVal);
       } else {
         setStatusMsg({ type: 'error', text: res.error || 'Failed to load system settings' });
@@ -208,11 +214,15 @@ export default function SystemSettingsPage() {
         body: JSON.stringify({ value: formData }),
       });
       if (res.success) {
+        const savedVal = res.data?.value || formData;
         setSettings((prev) => ({
           ...prev,
-          [activeTab]: { ...(prev[activeTab] || {}), value: res.data.value },
+          [activeTab]: { ...(prev[activeTab] || {}), value: savedVal },
         }));
-        setFormData(res.data.value);
+        setFormData(savedVal);
+        if (activeTab === 'general') {
+          updateGlobalSettings(savedVal);
+        }
         setStatusMsg({ type: 'success', text: `Saved ${activeTab.toUpperCase()} settings successfully!` });
       } else {
         setStatusMsg({ type: 'error', text: res.error || `Failed to update ${activeTab} settings` });

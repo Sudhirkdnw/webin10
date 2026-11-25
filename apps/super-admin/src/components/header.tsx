@@ -23,8 +23,14 @@ export function Header() {
           className="flex items-center gap-2.5 text-right p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
           title="Manage Admin Profile & Credentials"
         >
-          <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
-            {user?.name ? user.name.slice(0, 2).toUpperCase() : <User className="w-4 h-4" />}
+          <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs overflow-hidden shrink-0">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user?.name || 'Admin'} className="w-full h-full object-cover" />
+            ) : user?.name ? (
+              user.name.trim().slice(0, 2).toUpperCase()
+            ) : (
+              <User className="w-4 h-4" />
+            )}
           </div>
           <div className="text-left">
             <p className="text-xs font-semibold text-slate-900 leading-tight">{user?.name || 'Super Admin'}</p>

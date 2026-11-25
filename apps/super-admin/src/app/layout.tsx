@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
+import { PlatformSettingsProvider } from '@/lib/platform-settings-context';
 
 export const metadata: Metadata = {
   title: 'Webin10 | Super Admin Control Panel',
@@ -15,7 +16,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-slate-50 text-slate-900 antialiased min-h-screen">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <PlatformSettingsProvider>
+            {children}
+          </PlatformSettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   );
