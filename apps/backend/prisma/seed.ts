@@ -531,6 +531,58 @@ async function main() {
     }
   }
 
+  // 10.2 Seed Baseline Feature Flags
+  const baselineFeatureFlags = [
+    { key: 'whatsapp_marketing_campaigns', name: 'WhatsApp Marketing Broadcasts', description: 'Allows businesses to blast promotional festival offers and marketing campaigns', isEnabled: true },
+    { key: 'biometric_face_attendance', name: 'Biometric Face & Fingerprint Attendance', description: 'Enables hardware biometric scanner and tablet check-in integration', isEnabled: true },
+    { key: 'custom_domain_mapping', name: 'Custom Domain & Whitelabeling', description: 'Allows business tenants to connect their own custom domains (e.g. gym.com)', isEnabled: false },
+    { key: 'ai_diet_workout_planner', name: 'AI Diet & Workout Engine', description: 'Generates automated AI workout routines and personalized nutrition diets for members', isEnabled: true },
+    { key: 'razorpay_online_payment', name: 'Online UPI & Card Collection', description: 'Allows customers to pay membership fees online via Razorpay/UPI gateway', isEnabled: true },
+    { key: 'qr_code_kiosk', name: 'Reception QR Self-Checkin Kiosk', description: 'Generates rotating digital QR codes for contact-free member walk-in check-in', isEnabled: true },
+  ];
+
+  for (const f of baselineFeatureFlags) {
+    await prisma.featureFlag.upsert({
+      where: { key: f.key },
+      update: {},
+      create: f,
+    });
+    console.log(`✓ Feature Flag seeded: ${f.name} [${f.key}]`);
+  }
+
+  // 10.3 Seed Baseline Dynamic Configurations
+  const baselineConfigs = [
+    { key: 'platform.free_trial_days', name: 'Default SaaS Free Trial Duration (Days)', dataType: 'number', defaultValue: '14', description: 'Number of days new registered businesses get free platform access', isPublic: false },
+    { key: 'whatsapp.credit_rate_inr', name: 'WhatsApp Billing Cost per Message (₹)', dataType: 'number', defaultValue: '0.40', description: 'Platform credit amount deducted per outbound WhatsApp message', isPublic: false },
+    { key: 'billing.gst_tax_percentage', name: 'Platform Billing Tax / GST (%)', dataType: 'number', defaultValue: '18', description: 'Standard GST tax percentage applied to SaaS subscriptions and credits', isPublic: false },
+    { key: 'system.maintenance_mode', name: 'Platform Maintenance Mode', dataType: 'boolean', defaultValue: 'false', description: 'When true, non-admin logins are gracefully paused for system upgrades', isPublic: true },
+    { key: 'system.max_file_upload_mb', name: 'Maximum Media Upload Limit (MB)', dataType: 'number', defaultValue: '25', description: 'Max allowed file size for customer photos, campaign images, and bills', isPublic: false },
+    { key: 'auth.session_timeout_hours', name: 'Admin Session Inactivity Timeout (Hours)', dataType: 'number', defaultValue: '72', description: 'Hours before admin users are required to re-authenticate session', isPublic: false },
+  ];
+
+  for (const c of baselineConfigs) {
+    const def = await prisma.configurationDefinition.upsert({
+      where: { key: c.key },
+      update: {},
+      create: c,
+    });
+
+    const existingVal = await prisma.configurationValue.findFirst({
+      where: { definitionId: def.id, tenantId: null },
+    });
+    if (!existingVal) {
+      await prisma.configurationValue.create({
+        data: {
+          definitionId: def.id,
+          tenantId: null,
+          value: c.defaultValue,
+          version: 1,
+        },
+      });
+    }
+    console.log(`✓ Dynamic Configuration seeded: ${c.name} [${c.key}]`);
+  }
+
   // 11. Seed Demo Tenant (Gym & Fitness) with Customers for testing
   const gymCat = await prisma.businessCategory.findUnique({ where: { slug: 'gym' } });
   if (gymCat) {

@@ -21,3 +21,24 @@ export function getApiBaseUrl(): string {
   // 3. Local development fallback
   return 'http://localhost:4000/api/v1';
 }
+
+export function getSuperAdminUrl(): string {
+  if (process.env.NEXT_PUBLIC_SUPER_ADMIN_URL) {
+    return process.env.NEXT_PUBLIC_SUPER_ADMIN_URL;
+  }
+
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      const parts = hostname.split('.');
+      if (parts.length >= 2) {
+        const rootDomain = parts.slice(-2).join('.');
+        return `${protocol}//admin.${rootDomain}`;
+      }
+    }
+    // Local dev: super-admin typically runs on 3001
+    return `${protocol}//${hostname}:3001`;
+  }
+
+  return 'http://localhost:3001';
+}

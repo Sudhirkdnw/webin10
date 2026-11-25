@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AdminShell } from '@/components/admin-shell';
 import { apiRequest } from '@/lib/api';
-import { Building2, Plus, Search, ShieldAlert, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { Building2, Plus, Search, ShieldAlert, CheckCircle, XCircle, Trash2, ExternalLink } from 'lucide-react';
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<any[]>([]);
@@ -122,6 +122,26 @@ export default function TenantsPage() {
     }
   };
 
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+
+  const handleImpersonate = async (tenant: any) => {
+    setImpersonatingId(tenant.id);
+    try {
+      const res = await apiRequest(`/super-admin/support/impersonate/${tenant.id}`, {
+        method: 'POST',
+      });
+      if (res.success && res.data.redirectUrl) {
+        window.open(res.data.redirectUrl, '_blank');
+      } else {
+        alert(res.error || 'Failed to start impersonation session');
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message}`);
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
+
   return (
     <AdminShell>
       <div className="space-y-6">
@@ -223,6 +243,15 @@ export default function TenantsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleImpersonate(t)}
+                        disabled={impersonatingId === t.id}
+                        className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1 transition-colors disabled:opacity-50"
+                        title={`Login As ${t.name} (Ghost / Support Mode)`}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>{impersonatingId === t.id ? 'Connecting...' : 'Login As'}</span>
+                      </button>
                       <Link
                         href={`/tenants/${t.id}`}
                         className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"

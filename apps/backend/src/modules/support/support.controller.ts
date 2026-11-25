@@ -62,4 +62,17 @@ export class SupportController {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
     return this.supportService.revokeRequest(id, admin.id, ip);
   }
+
+  @Post('impersonate/:tenantId')
+  @HttpCode(HttpStatus.OK)
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
+  @ApiOperation({ summary: 'Super Admin 1-Click Login As Business (Ghost/Support Mode)' })
+  async impersonate(
+    @Param('tenantId') tenantId: string,
+    @CurrentUser() admin: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+    return this.supportService.impersonateTenant(tenantId, admin.id, ip);
+  }
 }

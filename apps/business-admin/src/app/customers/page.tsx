@@ -19,11 +19,11 @@ import {
   Plus,
 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/api';
-
-const DEMO_TENANT_ID = '1ccc2ab5-30fa-40a4-abc6-557bc6495b8a';
+import { useActiveTenant } from '@/lib/tenant';
 
 export default function CustomersPage() {
   const API_BASE = getApiBaseUrl();
+  const { tenantId } = useActiveTenant();
   const [customers, setCustomers] = useState<any[]>([]);
   const [counts, setCounts] = useState<any>({ total: 0, active: 0, expired: 0, feeDue: 0, leads: 0 });
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -45,13 +45,14 @@ export default function CustomersPage() {
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!tenantId) return;
     loadCustomers();
-  }, [selectedStatus, searchQuery]);
+  }, [tenantId, selectedStatus, searchQuery]);
 
   async function loadCustomers() {
     setLoading(true);
     try {
-      const url = new URL(`${API_BASE}/whatsapp/customers/${DEMO_TENANT_ID}`);
+      const url = new URL(`${API_BASE}/whatsapp/customers/${tenantId}`);
       if (selectedStatus !== 'ALL') url.searchParams.set('status', selectedStatus);
       if (searchQuery) url.searchParams.set('search', searchQuery);
 
@@ -72,7 +73,7 @@ export default function CustomersPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/whatsapp/customers/${DEMO_TENANT_ID}`, {
+      const res = await fetch(`${API_BASE}/whatsapp/customers/${tenantId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

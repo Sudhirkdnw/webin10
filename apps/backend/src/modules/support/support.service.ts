@@ -101,4 +101,89 @@ export class SupportService {
 
     return { id: updated.id, status: updated.status, message: 'Support access session revoked successfully' };
   }
+
+  async impersonateTenant(tenantId: string, adminId: string, ip?: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        profile: true,
+        members: {
+          include: { user: true },
+          where: { isActive: true },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with ID '${tenantId}' not found`);
+    }
+
+    let ownerUser = tenant.members.find((m) => m.role === 'BUSINESS_OWNER')?.user || tenant.members[0]?.user;
+
+    if (!ownerUser) {
+      const ownerEmail = tenant.profile?.email || `owner@${tenant.slug}.webin10.in`;
+      const ownerPhone = tenant.profile?.phone || '+919999999999';
+      let user = await this.prisma.user.findFirst({
+        where: { OR: [{ email: ownerEmail }, { phone: ownerPhone }] },
+      });
+
+      if (!user) {
+        user = await this.prisma.user.create({
+          data: {
+            name: tenant.profile?.legalName || tenant.name,
+            email: ownerEmail,
+            phone: ownerPhone,
+          },
+        });
+      }
+
+      await this.prisma.tenantMember.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user.id,
+          role: 'BUSINESS_OWNER',
+        },
+      });
+
+      ownerUser = user;
+    }
+
+    await this.auditService.log({
+      actorId: adminId,
+      actorType: 'PLATFORM_ADMIN',
+      tenantId: tenant.id,
+      action: 'support.tenant_impersonated',
+      entity: 'tenants',
+      entityId: tenant.id,
+      details: {
+        tenantName: tenant.name,
+        tenantSlug: tenant.slug,
+        ownerUserId: ownerUser.id,
+        ownerEmail: ownerUser.email,
+        timestamp: new Date().toISOString(),
+      },
+      ipAddress: ip,
+    });
+
+    const businessAdminUrl =
+      process.env.BUSINESS_ADMIN_URL ||
+      process.env.NEXT_PUBLIC_BUSINESS_ADMIN_URL ||
+      'http://localhost:3002';
+
+    return {
+      success: true,
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+      },
+      owner: {
+        id: ownerUser.id,
+        name: ownerUser.name,
+        email: ownerUser.email,
+        phone: ownerUser.phone,
+      },
+      redirectUrl: `${businessAdminUrl}/?impersonate_tenant=${tenant.id}&impersonate_name=${encodeURIComponent(tenant.name)}`,
+    };
+  }
 }

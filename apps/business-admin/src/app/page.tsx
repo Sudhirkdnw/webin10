@@ -18,31 +18,33 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/api';
-
-const DEMO_TENANT_ID = '1ccc2ab5-30fa-40a4-abc6-557bc6495b8a';
+import { useActiveTenant } from '@/lib/tenant';
 
 export default function BusinessDashboard() {
   const API_BASE = getApiBaseUrl();
-  const [counts, setCounts] = useState({ total: 5, active: 3, expired: 1, feeDue: 2, leads: 1 });
+  const { tenantId, tenantName } = useActiveTenant();
+  const [counts, setCounts] = useState({ total: 0, active: 0, expired: 0, feeDue: 0, leads: 0 });
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/whatsapp/customers/${DEMO_TENANT_ID}`)
+    if (!tenantId) return;
+
+    fetch(`${API_BASE}/whatsapp/customers/${tenantId}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success && d.data.counts) setCounts(d.data.counts);
+        if (d.success && d.data?.counts) setCounts(d.data.counts);
       })
       .catch(console.error);
 
-    fetch(`${API_BASE}/whatsapp/campaigns/${DEMO_TENANT_ID}`)
+    fetch(`${API_BASE}/whatsapp/campaigns/${tenantId}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setCampaigns(d.data);
+        if (d.success && d.data) setCampaigns(d.data);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [tenantId]);
 
   return (
     <BusinessShell>
@@ -55,7 +57,7 @@ export default function BusinessDashboard() {
               <span>Smart Business Operating System Active</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Good afternoon, FitZone Club 👋
+              Good afternoon, {tenantName} 👋
             </h1>
             <p className="text-emerald-100 text-xs sm:text-sm mt-2 leading-relaxed">
               Your automated WhatsApp reminders, QR attendance, and fee collection systems are running smoothly. All 4 background triggers are active.

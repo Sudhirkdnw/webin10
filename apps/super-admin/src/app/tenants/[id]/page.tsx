@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Plus,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function TenantDetailPage() {
@@ -153,6 +154,26 @@ export default function TenantDetailPage() {
     }
   };
 
+  const [impersonating, setImpersonating] = useState(false);
+
+  const handleImpersonate = async () => {
+    setImpersonating(true);
+    try {
+      const res = await apiRequest(`/super-admin/support/impersonate/${tenantId}`, {
+        method: 'POST',
+      });
+      if (res.success && res.data.redirectUrl) {
+        window.open(res.data.redirectUrl, '_blank');
+      } else {
+        alert(res.error || 'Failed to start impersonation session');
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message}`);
+    } finally {
+      setImpersonating(false);
+    }
+  };
+
   if (loading) {
     return (
       <AdminShell>
@@ -214,6 +235,16 @@ export default function TenantDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleImpersonate}
+              disabled={impersonating}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+              title="Launch Business Admin as this tenant in Ghost/Support Mode"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>{impersonating ? 'Launching...' : 'Login As Business'}</span>
+            </button>
+
             <button
               onClick={() => setPlanModalOpen(true)}
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-colors"

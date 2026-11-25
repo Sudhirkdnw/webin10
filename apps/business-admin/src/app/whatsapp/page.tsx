@@ -29,11 +29,11 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/api';
-
-const DEMO_TENANT_ID = '1ccc2ab5-30fa-40a4-abc6-557bc6495b8a';
+import { useActiveTenant } from '@/lib/tenant';
 
 export default function WhatsAppHubPage() {
   const API_BASE = getApiBaseUrl();
+  const { tenantId, tenantName } = useActiveTenant();
   const [activeTab, setActiveTab] = useState<'campaigns' | 'automations' | 'logs' | 'connection'>('campaigns');
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<any>(null);
@@ -60,19 +60,20 @@ export default function WhatsAppHubPage() {
   const [savingSenderConfig, setSavingSenderConfig] = useState(false);
 
   useEffect(() => {
+    if (!tenantId) return;
     loadAllData();
-  }, []);
+  }, [tenantId]);
 
   async function loadAllData() {
     setLoading(true);
     try {
       const [accRes, tmplRes, campRes, autoRes, logsRes, custRes] = await Promise.all([
-        fetch(`${API_BASE}/whatsapp/accounts/${DEMO_TENANT_ID}`),
+        fetch(`${API_BASE}/whatsapp/accounts/${tenantId}`),
         fetch(`${API_BASE}/whatsapp/templates`),
-        fetch(`${API_BASE}/whatsapp/campaigns/${DEMO_TENANT_ID}`),
-        fetch(`${API_BASE}/whatsapp/automations/${DEMO_TENANT_ID}`),
-        fetch(`${API_BASE}/whatsapp/logs/${DEMO_TENANT_ID}?limit=25`),
-        fetch(`${API_BASE}/whatsapp/customers/${DEMO_TENANT_ID}`),
+        fetch(`${API_BASE}/whatsapp/campaigns/${tenantId}`),
+        fetch(`${API_BASE}/whatsapp/automations/${tenantId}`),
+        fetch(`${API_BASE}/whatsapp/logs/${tenantId}?limit=25`),
+        fetch(`${API_BASE}/whatsapp/customers/${tenantId}`),
       ]);
 
       const [accData, tmplData, campData, autoData, logsData, custData] = await Promise.all([
@@ -105,7 +106,7 @@ export default function WhatsAppHubPage() {
 
   async function handleToggleAutomation(ruleId: string, currentEnabled: boolean) {
     try {
-      const res = await fetch(`${API_BASE}/whatsapp/automations/${DEMO_TENANT_ID}/${ruleId}`, {
+      const res = await fetch(`${API_BASE}/whatsapp/automations/${tenantId}/${ruleId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isEnabled: !currentEnabled }),
@@ -133,7 +134,7 @@ export default function WhatsAppHubPage() {
     setStatusMsg(null);
 
     try {
-      const res = await fetch(`${API_BASE}/whatsapp/campaigns/${DEMO_TENANT_ID}`, {
+      const res = await fetch(`${API_BASE}/whatsapp/campaigns/${tenantId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -167,7 +168,7 @@ export default function WhatsAppHubPage() {
     setSavingSenderConfig(true);
     setStatusMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/whatsapp/accounts/${DEMO_TENANT_ID}`, {
+      const res = await fetch(`${API_BASE}/whatsapp/accounts/${tenantId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
