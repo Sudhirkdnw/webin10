@@ -67,6 +67,21 @@ const TABS: TabDefinition[] = [
   { key: 'cloudinary', label: 'Cloudinary Storage', icon: Cloud },
 ];
 
+const DEFAULT_GENERAL_VALUES: Record<string, any> = {
+  appName: 'Webin10',
+  email: 'webin10.in@gmail.com',
+  phone: '+91 7070799200',
+  planExpireNotificationDays: 5,
+  address: 'Narkatiaganj, West Champaran, Bihar, 845455',
+  defaultLanguage: 'English',
+  userDefaultLanguage: 'English',
+  dateTimeFormat: 'Day Month, Year',
+  defaultCountryCode: 'in',
+  defaultCurrencyFormat: '₹ - INR Indian Rupee',
+  timezone: 'Asia/Kolkata',
+  blockEmailDomains: 'tempmail.com, 10minutemail.com, maildrop.cc, throwawaymail.com',
+};
+
 export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('general');
   const [loading, setLoading] = useState(true);
@@ -126,7 +141,7 @@ export default function SystemSettingsPage() {
       if (res.success) {
         setSettings(res.data || {});
         const currentTabVal = res.data?.[activeTab]?.value || {};
-        setFormData(currentTabVal);
+        setFormData(activeTab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...currentTabVal } : currentTabVal);
       } else {
         setStatusMsg({ type: 'error', text: res.error || 'Failed to load system settings' });
       }
@@ -177,7 +192,7 @@ export default function SystemSettingsPage() {
     setCloudinaryResult(null);
     setIntegrationTestResult(null);
     const tabVal = settings?.[tab]?.value || {};
-    setFormData({ ...tabVal });
+    setFormData(tab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...tabVal } : { ...tabVal });
   }
 
   function handleFieldChange(field: string, value: any) {
@@ -211,7 +226,7 @@ export default function SystemSettingsPage() {
 
   function handleDiscard() {
     const tabVal = settings?.[activeTab]?.value || {};
-    setFormData({ ...tabVal });
+    setFormData(activeTab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...tabVal } : { ...tabVal });
     setStatusMsg({ type: 'success', text: 'Changes discarded. Original values restored.' });
   }
 
@@ -462,11 +477,12 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="text"
-                      value={formData.appName || ''}
+                      value={formData.appName ?? 'Webin10'}
                       onChange={(e) => handleFieldChange('appName', e.target.value)}
                       placeholder="Webin10"
-                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-semibold"
                     />
+                    <span className="text-[11px] text-slate-400 mt-1 block">Branding across customer portals, bills & emails</span>
                   </div>
 
                   <div>
@@ -475,11 +491,12 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="email"
-                      value={formData.email || ''}
+                      value={formData.email ?? 'webin10.in@gmail.com'}
                       onChange={(e) => handleFieldChange('email', e.target.value)}
                       placeholder="webin10.in@gmail.com"
                       className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
+                    <span className="text-[11px] text-slate-400 mt-1 block">Official support & platform reply-to email</span>
                   </div>
 
                   <div>
@@ -488,12 +505,30 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="text"
-                      value={formData.phone || ''}
+                      value={formData.phone ?? '+91 7070799200'}
                       onChange={(e) => handleFieldChange('phone', e.target.value)}
                       placeholder="+91 7070799200"
-                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono"
                     />
-                    <span className="text-[11px] text-emerald-600 font-medium mt-1 block">Valid Number</span>
+                    {(() => {
+                      const clean = String(formData.phone || '').replace(/\D/g, '');
+                      const isValid = clean.length >= 10 && clean.length <= 13;
+                      return (
+                        <span className={`text-[11px] font-medium mt-1 flex items-center gap-1 ${isValid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {isValid ? (
+                            <>
+                              <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0" />
+                              Valid Number (Ready for WhatsApp & SMS Gateway)
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+                              Enter valid 10-digit number with country code (+91)
+                            </>
+                          )}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div>
@@ -502,10 +537,15 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="number"
+                      min={1}
+                      max={60}
                       value={formData.planExpireNotificationDays ?? 5}
                       onChange={(e) => handleFieldChange('planExpireNotificationDays', Number(e.target.value))}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono"
                     />
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Auto-alerts gym owners {formData.planExpireNotificationDays ?? 5} days before plan expiry
+                    </span>
                   </div>
 
                   <div className="md:col-span-2">
@@ -514,11 +554,12 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="text"
-                      value={formData.address || ''}
+                      value={formData.address ?? 'Narkatiaganj, West Champaran, Bihar, 845455'}
                       onChange={(e) => handleFieldChange('address', e.target.value)}
                       placeholder="Narkatiaganj, West Champaran, Bihar, 845455"
                       className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
+                    <span className="text-[11px] text-slate-400 mt-1 block">Appears on tax invoices, billing receipts, and legal notices</span>
                   </div>
 
                   <div>
@@ -530,9 +571,10 @@ export default function SystemSettingsPage() {
                       onChange={(e) => handleFieldChange('defaultLanguage', e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
-                      <option value="English">English</option>
-                      <option value="Hindi">Hindi</option>
-                      <option value="Spanish">Spanish</option>
+                      <option value="English">English (Global / Indian SaaS)</option>
+                      <option value="Hindi">Hindi (हिन्दी)</option>
+                      <option value="Hinglish">Hinglish (English + Hindi Hybrid)</option>
+                      <option value="Spanish">Spanish (Español)</option>
                     </select>
                   </div>
 
@@ -546,7 +588,8 @@ export default function SystemSettingsPage() {
                       className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="English">English</option>
-                      <option value="Hindi">Hindi</option>
+                      <option value="Hindi">Hindi (हिन्दी)</option>
+                      <option value="Hinglish">Hinglish</option>
                     </select>
                   </div>
 
@@ -559,9 +602,11 @@ export default function SystemSettingsPage() {
                       onChange={(e) => handleFieldChange('dateTimeFormat', e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
-                      <option value="Day Month, Year">Day Month, Year (24 Nov 2026)</option>
-                      <option value="DD-MM-YYYY">DD-MM-YYYY (24-11-2026)</option>
-                      <option value="YYYY-MM-DD">YYYY-MM-DD (2026-11-24)</option>
+                      <option value="Day Month, Year">Day Month, Year (25 Nov 2026)</option>
+                      <option value="DD/MM/YYYY">DD/MM/YYYY (25/11/2026 - Indian Banking Standard)</option>
+                      <option value="DD-MM-YYYY">DD-MM-YYYY (25-11-2026)</option>
+                      <option value="YYYY-MM-DD">YYYY-MM-DD (2026-11-25 - ISO Database)</option>
+                      <option value="MM/DD/YYYY">MM/DD/YYYY (11/25/2026 - US Standard)</option>
                     </select>
                   </div>
 
@@ -571,11 +616,12 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="text"
-                      value={formData.defaultCountryCode || 'in'}
+                      value={formData.defaultCountryCode ?? 'in'}
                       onChange={(e) => handleFieldChange('defaultCountryCode', e.target.value)}
                       placeholder="in"
-                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-mono uppercase"
                     />
+                    <span className="text-[11px] text-slate-400 mt-1 block">ISO 3166-1 alpha-2 code (e.g. IN for India)</span>
                   </div>
 
                   <div>
@@ -585,11 +631,14 @@ export default function SystemSettingsPage() {
                     <select
                       value={formData.defaultCurrencyFormat || '₹ - INR Indian Rupee'}
                       onChange={(e) => handleFieldChange('defaultCurrencyFormat', e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-semibold"
                     >
-                      <option value="₹ - INR Indian Rupee">₹ - INR Indian Rupee</option>
+                      <option value="₹ - INR Indian Rupee">₹ - INR Indian Rupee (India)</option>
                       <option value="$ - USD US Dollar">$ - USD US Dollar</option>
                       <option value="€ - EUR Euro">€ - EUR Euro</option>
+                      <option value="£ - GBP British Pound">£ - GBP British Pound</option>
+                      <option value="AED - UAE Dirham">AED - United Arab Emirates Dirham</option>
+                      <option value="CAD - Canadian Dollar">CAD - Canadian Dollar</option>
                     </select>
                   </div>
 
@@ -598,15 +647,68 @@ export default function SystemSettingsPage() {
                       Timezone:
                     </label>
                     <select
-                      value={formData.timezone || 'UTC'}
+                      value={formData.timezone || 'Asia/Kolkata'}
                       onChange={(e) => handleFieldChange('timezone', e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500 font-medium"
                     >
-                      <option value="UTC">UTC</option>
-                      <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
-                      <option value="America/New_York">America/New_York (EST)</option>
-                      <option value="Europe/London">Europe/London (GMT)</option>
+                      <option value="Asia/Kolkata">Asia/Kolkata (IST +05:30) - India (Recommended)</option>
+                      <option value="UTC">UTC (Coordinated Universal Time)</option>
+                      <option value="Asia/Dubai">Asia/Dubai (GST +04:00) - UAE / Gulf</option>
+                      <option value="Asia/Singapore">Asia/Singapore (SGT +08:00) - Singapore</option>
+                      <option value="Europe/London">Europe/London (GMT/BST +00:00) - UK</option>
+                      <option value="America/New_York">America/New_York (EST -05:00) - US East</option>
+                      <option value="America/Chicago">America/Chicago (CST -06:00) - US Central</option>
+                      <option value="America/Los_Angeles">America/Los_Angeles (PST -08:00) - US West</option>
+                      <option value="Australia/Sydney">Australia/Sydney (AEST +10:00) - Australia</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Live Enterprise Simulation / Preview Bar */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+                      Live Dynamic System Settings Preview
+                    </span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">
+                      Active In Platform
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Platform Brand</span>
+                      <p className="font-bold text-slate-900 text-sm truncate">{formData.appName || 'Webin10'}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{formData.email || 'webin10.in@gmail.com'}</p>
+                      <p className="text-[11px] text-slate-500 font-mono truncate">{formData.phone || '+91 7070799200'}</p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Billing & Invoicing</span>
+                      <p className="font-bold text-slate-900 text-sm">
+                        {(formData.defaultCurrencyFormat || '₹').split(' - ')[0]} 1,999.00
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Date: {formData.dateTimeFormat === 'DD/MM/YYYY' ? '25/11/2026' : formData.dateTimeFormat === 'YYYY-MM-DD' ? '2026-11-25' : '25 Nov 2026'}
+                      </p>
+                      <p className="text-[11px] text-indigo-600 font-semibold">
+                        Zone: {formData.timezone || 'Asia/Kolkata'}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Automation Policy</span>
+                      <p className="font-bold text-slate-900 text-sm">
+                        {formData.planExpireNotificationDays ?? 5} Days Expiry Notice
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        Loc: {formData.address || 'Narkatiaganj, Bihar'}
+                      </p>
+                      <p className="text-[11px] text-emerald-600 font-semibold">
+                        Lang: {formData.defaultLanguage || 'English'}
+                      </p>
+                    </div>
                   </div>
                 </div>
 

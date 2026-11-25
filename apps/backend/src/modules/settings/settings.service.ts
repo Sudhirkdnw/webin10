@@ -13,6 +13,21 @@ const SENSITIVE_KEYS = [
   'secretKey',
 ];
 
+export const DEFAULT_GENERAL_SETTINGS = {
+  appName: 'Webin10',
+  email: 'webin10.in@gmail.com',
+  phone: '+91 7070799200',
+  planExpireNotificationDays: 5,
+  address: 'Narkatiaganj, West Champaran, Bihar, 845455',
+  defaultLanguage: 'English',
+  userDefaultLanguage: 'English',
+  dateTimeFormat: 'Day Month, Year',
+  defaultCountryCode: 'in',
+  defaultCurrencyFormat: '₹ - INR Indian Rupee',
+  timezone: 'Asia/Kolkata',
+  blockEmailDomains: 'tempmail.com, 10minutemail.com, maildrop.cc, throwawaymail.com',
+};
+
 @Injectable()
 export class SettingsService {
   constructor(
@@ -43,6 +58,33 @@ export class SettingsService {
       };
     }
 
+    // Ensure general settings always exist with enterprise baseline defaults
+    if (!result.general) {
+      const created = await this.prisma.systemSetting.upsert({
+        where: { key: 'general_settings' },
+        create: {
+          group: 'general',
+          key: 'general_settings',
+          value: DEFAULT_GENERAL_SETTINGS,
+          isPublic: true,
+        },
+        update: {},
+      });
+      result.general = {
+        id: created.id,
+        group: 'general',
+        key: 'general_settings',
+        value: created.value,
+        isPublic: true,
+        updatedAt: created.updatedAt,
+      };
+    } else {
+      result.general.value = {
+        ...DEFAULT_GENERAL_SETTINGS,
+        ...(result.general.value || {}),
+      };
+    }
+
     return result;
   }
 
@@ -50,17 +92,35 @@ export class SettingsService {
    * Get settings for a specific group
    */
   async getSettingByGroup(group: string) {
-    const setting = await this.prisma.systemSetting.findFirst({
+    let setting = await this.prisma.systemSetting.findFirst({
       where: { group },
     });
+
+    if (!setting && group === 'general') {
+      setting = await this.prisma.systemSetting.upsert({
+        where: { key: 'general_settings' },
+        create: {
+          group: 'general',
+          key: 'general_settings',
+          value: DEFAULT_GENERAL_SETTINGS,
+          isPublic: true,
+        },
+        update: {},
+      });
+    }
 
     if (!setting) {
       throw new NotFoundException(`Settings for group '${group}' not found`);
     }
 
+    let val = setting.value;
+    if (group === 'general') {
+      val = { ...DEFAULT_GENERAL_SETTINGS, ...(val as any || {}) };
+    }
+
     return {
       ...setting,
-      value: this.maskSensitiveData(setting.value),
+      value: this.maskSensitiveData(val),
     };
   }
 
