@@ -1,16 +1,24 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
 import { useAuth } from '@/lib/auth-context';
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const { isLoading, token } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close mobile drawer on navigation
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   if (isLoading || !token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 text-sm">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-sm">
         Authenticating Super Admin session...
       </div>
     );
@@ -18,10 +26,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
-      <Sidebar />
+      <Sidebar
+        isOpenOnMobile={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
       <div className="flex-1 flex flex-col overflow-y-auto">
-        <Header />
-        <main className="p-8 flex-1 bg-slate-50 dark:bg-slate-950 transition-colors duration-200">{children}</main>
+        <Header onOpenMobileSidebar={() => setMobileMenuOpen(true)} />
+        <main className="p-4 sm:p-6 lg:p-8 flex-1 bg-slate-50 dark:bg-slate-950 transition-colors duration-200">{children}</main>
       </div>
     </div>
   );

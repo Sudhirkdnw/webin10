@@ -70,4 +70,11 @@ export class SettingsController {
   async generateSitemap(@CurrentUser() admin: AuthenticatedUser, @Ip() ip: string) {
     return this.settingsService.generateSitemap(admin.id, ip);
   }
+
+  @Post('actions/export-backup')
+  @ApiOperation({ summary: 'Export complete system JSON backup for disaster recovery' })
+  @RequirePlatformRoles(PlatformRole.PLATFORM_OWNER, PlatformRole.SUPER_ADMIN)
+  async exportBackup(@CurrentUser() admin: AuthenticatedUser, @Ip() ip: string) {
+    return this.settingsService.exportSystemBackup(admin.id, ip);
+  }
 }

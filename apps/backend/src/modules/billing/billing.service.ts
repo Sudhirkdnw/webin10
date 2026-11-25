@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { AuditService } from '@/modules/audit/audit.service';
+import { MailService } from '@/modules/mail/mail.service';
+import { WhatsAppService } from '@/modules/whatsapp/whatsapp.service';
 import { GenerateInvoiceDto } from './dto/generate-invoice.dto';
 import { ListInvoicesDto } from './dto/list-invoices.dto';
 import * as crypto from 'crypto';
@@ -17,6 +19,8 @@ export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly mailService: MailService,
+    private readonly whatsappService: WhatsAppService,
   ) {}
 
   /**
@@ -518,5 +522,155 @@ export class BillingService {
         paymentReference: paymentReference,
       });
     }
+  }
+
+  /**
+   * Automated Plan Expiry Alert Dispatcher (WhatsApp + Email)
+   */
+  async triggerExpiryAlerts(
+    dto: { daysAhead?: number; sendEmail?: boolean; sendWhatsapp?: boolean; specificSubscriptionId?: string },
+    adminId?: string,
+    ip?: string,
+  ) {
+    const genSetting = await this.prisma.systemSetting.findFirst({
+      where: { key: 'general_settings' },
+    });
+    const defaultDays = (genSetting?.value as any)?.planExpireNotificationDays || 5;
+    const appName = (genSetting?.value as any)?.appName || 'Webin10';
+    const daysAhead = dto.daysAhead !== undefined ? dto.daysAhead : defaultDays;
+
+    const sendEmail = dto.sendEmail ?? true;
+    const sendWhatsapp = dto.sendWhatsapp ?? true;
+
+    const expiring = await this.getExpiringSubscriptions(daysAhead);
+    const targets = dto.specificSubscriptionId
+      ? expiring.filter((e) => e.subscriptionId === dto.specificSubscriptionId)
+      : expiring;
+
+    const results: any[] = [];
+    let emailSentCount = 0;
+    let whatsappSentCount = 0;
+
+    for (const item of targets) {
+      const tenantName = item.tenantName || 'Valued Business';
+      const ownerName = item.ownerName || tenantName;
+      const recipientEmail = item.ownerEmail && item.ownerEmail !== 'N/A' ? item.ownerEmail : null;
+      const recipientPhone = item.ownerPhone && item.ownerPhone !== 'N/A' ? item.ownerPhone : null;
+      const planName = item.planName || 'SaaS Subscription';
+      const daysLeft = item.daysRemaining;
+      const formattedDate = new Date(item.currentPeriodEnd).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+
+      let emailStatus: 'SENT' | 'FAILED' | 'SKIPPED' = 'SKIPPED';
+      let whatsappStatus: 'SENT' | 'FAILED' | 'SKIPPED' = 'SKIPPED';
+      let emailError = '';
+      let whatsappError = '';
+
+      // Send Email
+      if (sendEmail && recipientEmail) {
+        try {
+          const htmlContent = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+              <div style="margin-bottom: 20px;">
+                <h2 style="color: #0f172a; margin: 0; font-size: 20px;">⚠️ Subscription Expiry Alert</h2>
+                <p style="color: #64748b; font-size: 13px; margin: 4px 0 0 0;">${appName} Cloud Business OS</p>
+              </div>
+              <p style="font-size: 14px; color: #334155; line-height: 1.6;">Dear <strong>${ownerName}</strong>,</p>
+              <p style="font-size: 14px; color: #334155; line-height: 1.6;">
+                Your <strong>${planName}</strong> subscription for <strong>${tenantName}</strong> is scheduled to expire ${daysLeft <= 0 ? '<span style="color: #e11d48; font-weight: bold;">today</span>' : `in <strong>${daysLeft} days</strong> (on <strong>${formattedDate}</strong>)`}.
+              </p>
+              <div style="background: #f8fafc; border-left: 4px solid #00D09C; padding: 14px 18px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; font-size: 13px; color: #334155;"><strong>Workspace:</strong> ${tenantName}</p>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #334155;"><strong>Plan:</strong> ${planName}</p>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #334155;"><strong>Renewal Valid Until:</strong> ${formattedDate}</p>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #334155;"><strong>Renewal Amount:</strong> ₹${item.priceMonthly || 0}</p>
+              </div>
+              <p style="font-size: 14px; color: #334155; line-height: 1.6;">
+                To ensure uninterrupted service for your orders, team operations, customer communications, and live data, please log in and renew your plan promptly.
+              </p>
+              <div style="margin: 28px 0;">
+                <a href="https://${appName.toLowerCase().replace(/\s+/g, '')}.in/billing" style="display: inline-block; background: #00D09C; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 12px 28px; border-radius: 8px;">
+                  Renew Subscription Now
+                </a>
+              </div>
+              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
+              <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+                Warm regards,<br/>The ${appName} Platform Team
+              </p>
+            </div>
+          `;
+          await this.mailService.sendMail(
+            {
+              to: recipientEmail,
+              subject: `Action Required: Your ${appName} subscription for ${tenantName} expires in ${daysLeft} days`,
+              html: htmlContent,
+              recipientName: ownerName,
+            },
+            { tenantId: item.tenantId },
+          );
+          emailStatus = 'SENT';
+          emailSentCount++;
+        } catch (err: any) {
+          emailStatus = 'FAILED';
+          emailError = err.message || 'Email delivery failed';
+        }
+      }
+
+      // Send WhatsApp
+      if (sendWhatsapp && recipientPhone) {
+        try {
+          const waMessage = `⚠️ *${appName} Subscription Expiry Alert*\n\nDear *${ownerName}*,\nYour *${planName}* plan for *${tenantName}* is expiring ${daysLeft <= 0 ? 'today' : `in *${daysLeft} days*`} (on *${formattedDate}*).\n\n💰 Renewal Amount: ₹${item.priceMonthly || 0}\n\nPlease renew promptly to avoid any interruption in your orders, staff access, and messaging.\n\n— Team ${appName}`;
+          await this.whatsappService.sendTextMessage(recipientPhone, waMessage);
+          whatsappStatus = 'SENT';
+          whatsappSentCount++;
+        } catch (err: any) {
+          whatsappStatus = 'FAILED';
+          whatsappError = err.message || 'WhatsApp delivery failed';
+        }
+      }
+
+      results.push({
+        subscriptionId: item.subscriptionId,
+        tenantId: item.tenantId,
+        tenantName,
+        ownerName,
+        recipientEmail,
+        recipientPhone,
+        daysRemaining: daysLeft,
+        emailStatus,
+        whatsappStatus,
+        emailError,
+        whatsappError,
+      });
+    }
+
+    if (adminId) {
+      await this.auditService.log({
+        actorId: adminId,
+        actorType: 'PLATFORM_ADMIN',
+        action: 'SUBSCRIPTION_EXPIRY_NOTIFICATIONS_TRIGGERED',
+        entity: 'BillingExpiry',
+        entityId: 'EXPIRY_DISPATCHER',
+        ipAddress: ip,
+        details: {
+          daysAhead,
+          totalProcessed: targets.length,
+          emailSentCount,
+          whatsappSentCount,
+        },
+      });
+    }
+
+    return {
+      success: true,
+      totalProcessed: targets.length,
+      emailSentCount,
+      whatsappSentCount,
+      daysAhead,
+      results,
+    };
   }
 }

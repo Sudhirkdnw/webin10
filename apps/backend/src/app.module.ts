@@ -21,6 +21,7 @@ import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
 import { LogRetentionModule } from './modules/log-retention/log-retention.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { AnnouncementsModule } from './modules/announcements/announcements.modul
     LogRetentionModule,
     BillingModule,
     AnnouncementsModule,
+    CouponsModule,
   ],
 })
 export class AppModule {}

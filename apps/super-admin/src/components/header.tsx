@@ -4,15 +4,30 @@ import React from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { usePlatformSettings } from '@/lib/platform-settings-context';
-import { LogOut, ShieldCheck, User, Sun, Moon } from 'lucide-react';
+import { LogOut, ShieldCheck, User, Sun, Moon, Menu } from 'lucide-react';
 
-export function Header() {
+interface HeaderProps {
+  onOpenMobileSidebar?: () => void;
+}
+
+export function Header({ onOpenMobileSidebar }: HeaderProps) {
   const { user, logout } = useAuth();
   const { effectiveMode, toggleColorMode } = usePlatformSettings();
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10 transition-colors duration-200">
-      <div className="flex items-center gap-2">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-10 transition-colors duration-200">
+      <div className="flex items-center gap-3">
+        {onOpenMobileSidebar && (
+          <button
+            type="button"
+            onClick={onOpenMobileSidebar}
+            className="md:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="Open navigation menu"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           Platform Online

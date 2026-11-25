@@ -21,6 +21,8 @@ import {
   Network,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
+  Clock,
   Loader2,
   Send,
   Save,
@@ -34,6 +36,7 @@ import {
   EyeOff,
   Sun,
   Moon,
+  Download,
 } from 'lucide-react';
 
 type TabKey =
@@ -48,6 +51,7 @@ type TabKey =
   | 'mail'
   | 'custom_domain'
   | 'theme'
+  | 'maintenance'
   | 'cloudinary';
 
 interface TabDefinition {
@@ -68,8 +72,18 @@ const TABS: TabDefinition[] = [
   { key: 'mail', label: 'Mail Settings', icon: Mail },
   { key: 'custom_domain', label: 'Custom Domain', icon: Globe2 },
   { key: 'theme', label: 'Theme Color', icon: Palette },
+  { key: 'maintenance', label: 'Maintenance Mode', icon: AlertTriangle },
   { key: 'cloudinary', label: 'Cloudinary Storage', icon: Cloud },
 ];
+
+const DEFAULT_MAINTENANCE_VALUES: Record<string, any> = {
+  isEnabled: false,
+  title: 'Platform Under Scheduled Maintenance',
+  message: 'We are performing critical infrastructure and database upgrades to improve system speed and security. Platform services will resume shortly.',
+  estimatedEndTime: '',
+  allowedIps: '',
+  supportEmail: 'support@webin10.com',
+};
 
 const DEFAULT_GENERAL_VALUES: Record<string, any> = {
   appName: 'Webin10',
@@ -207,6 +221,8 @@ export default function SystemSettingsPage() {
   const [dbModalResult, setDbModalResult] = useState<any | null>(null);
   const [sitemapGenerating, setSitemapGenerating] = useState(false);
   const [sitemapModalResult, setSitemapModalResult] = useState<any | null>(null);
+  const [backupExporting, setBackupExporting] = useState(false);
+  const [backupModalResult, setBackupModalResult] = useState<any | null>(null);
 
   // Mail testing state
   const [testMailRecipient, setTestMailRecipient] = useState('');
@@ -261,7 +277,7 @@ export default function SystemSettingsPage() {
         if (themeVal) {
           updateTheme(themeVal);
         }
-        setFormData(activeTab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...currentTabVal } : currentTabVal);
+        setFormData(activeTab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...currentTabVal } : activeTab === 'maintenance' ? { ...DEFAULT_MAINTENANCE_VALUES, ...currentTabVal } : currentTabVal);
       } else {
         setStatusMsg({ type: 'error', text: res.error || 'Failed to load system settings' });
       }
@@ -312,7 +328,7 @@ export default function SystemSettingsPage() {
     setCloudinaryResult(null);
     setIntegrationTestResult(null);
     const tabVal = settings?.[tab]?.value || {};
-    setFormData(tab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...tabVal } : { ...tabVal });
+    setFormData(tab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...tabVal } : tab === 'maintenance' ? { ...DEFAULT_MAINTENANCE_VALUES, ...tabVal } : { ...tabVal });
   }
 
   function handleFieldChange(field: string, value: any) {
@@ -353,7 +369,7 @@ export default function SystemSettingsPage() {
 
   function handleDiscard() {
     const tabVal = settings?.[activeTab]?.value || {};
-    setFormData(activeTab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...tabVal } : { ...tabVal });
+    setFormData(activeTab === 'general' ? { ...DEFAULT_GENERAL_VALUES, ...tabVal } : activeTab === 'maintenance' ? { ...DEFAULT_MAINTENANCE_VALUES, ...tabVal } : { ...tabVal });
     setStatusMsg({ type: 'success', text: 'Changes discarded. Original values restored.' });
   }
 
@@ -390,6 +406,36 @@ export default function SystemSettingsPage() {
       setSitemapModalResult({ success: false, message: err.message || 'Sitemap generation failed' });
     } finally {
       setSitemapGenerating(false);
+    }
+  }
+
+  async function handleExportBackup() {
+    setBackupExporting(true);
+    try {
+      const res = await apiRequest<any>('/super-admin/settings/actions/export-backup', {
+        method: 'POST',
+      });
+      if (res.success && res.data) {
+        setBackupModalResult(res.data);
+
+        // Trigger automatic file download in browser
+        const jsonStr = JSON.stringify(res.data.backup, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = res.data.filename || `webin10-backup-${Date.now()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        alert(res.error || 'Failed to export platform backup snapshot');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error exporting system backup');
+    } finally {
+      setBackupExporting(false);
     }
   }
 
@@ -859,6 +905,16 @@ export default function SystemSettingsPage() {
                   >
                     {sitemapGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Network className="w-4 h-4" />}
                     <span>Generate Sitemap</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportBackup}
+                    disabled={backupExporting}
+                    className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {backupExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    <span>Export Backup (JSON)</span>
                   </button>
                 </div>
 
@@ -2679,7 +2735,206 @@ export default function SystemSettingsPage() {
               </div>
             )}
 
-            {/* 12. CLOUDINARY MEDIA STORAGE TAB */}
+            {/* 12. PLATFORM MAINTENANCE MODE KILLSWITCH TAB */}
+            {activeTab === 'maintenance' && (
+              <div className="space-y-6">
+                {/* Emergency Status Banner */}
+                <div
+                  className={`p-5 rounded-2xl border transition-all ${
+                    formData.isEnabled
+                      ? 'bg-rose-50 border-rose-200 text-rose-950 shadow-sm ring-2 ring-rose-500/20'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3.5">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                          formData.isEnabled ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'
+                        }`}
+                      >
+                        <AlertTriangle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold">
+                            {formData.isEnabled
+                              ? '🚨 EMERGENCY MAINTENANCE ACTIVE'
+                              : '✅ NORMAL PLATFORM OPERATION'}
+                          </h3>
+                          {formData.isEnabled && (
+                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          {formData.isEnabled
+                            ? 'All tenant business dashboards, member logins, and public customer portals are currently intercepting traffic and displaying the maintenance notice.'
+                            : 'All platform services, tenant business apps, and APIs are live and serving normal traffic.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleFieldChange('isEnabled', !formData.isEnabled)}
+                      className={`px-5 py-2.5 rounded-xl font-bold text-xs transition shadow-xs flex items-center gap-2 shrink-0 ${
+                        formData.isEnabled
+                          ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                          : 'bg-slate-900 hover:bg-slate-800 text-white'
+                      }`}
+                    >
+                      <span>{formData.isEnabled ? 'Deactivate Maintenance (Turn Live)' : 'Activate Maintenance Mode'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Configuration Fields */}
+                <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Maintenance Notice & Display Configurations
+                  </h4>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Maintenance Notice Headline:*
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.title || ''}
+                      onChange={(e) => handleFieldChange('title', e.target.value)}
+                      placeholder="e.g. Platform Under Scheduled Maintenance"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Detailed Public Notice Message:*
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.message || ''}
+                      onChange={(e) => handleFieldChange('message', e.target.value)}
+                      placeholder="Explain the upgrade or maintenance reasons clearly to your business customers..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1">
+                        Estimated Completion Time:
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.estimatedEndTime || ''}
+                        onChange={(e) => handleFieldChange('estimatedEndTime', e.target.value)}
+                        placeholder="e.g. 26 Nov 2026, 02:00 AM IST"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1">
+                        Emergency Support Contact Email:
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.supportEmail || ''}
+                        onChange={(e) => handleFieldChange('supportEmail', e.target.value)}
+                        placeholder="support@webin10.com"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Whitelisted IP Addresses (Comma-separated, Bypass Maintenance):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.allowedIps || ''}
+                      onChange={(e) => handleFieldChange('allowedIps', e.target.value)}
+                      placeholder="e.g. 127.0.0.1, 192.168.1.1, 103.21.244.5"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Super Admin dashboard is automatically protected and always accessible by authenticated owners.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Live Visitor Simulation Mockup */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden text-white shadow-xl">
+                  <div className="px-5 py-3 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between text-xs">
+                    <span className="font-bold flex items-center gap-1.5 text-slate-300">
+                      <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                      Live Preview: What Your Tenants & Customers Will See
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      formData.isEnabled ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {formData.isEnabled ? 'PREVIEWING ACTIVE SCREEN' : 'PREVIEW MODE (CURRENTLY INACTIVE)'}
+                    </span>
+                  </div>
+
+                  <div className="p-8 text-center max-w-md mx-auto space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto shadow-lg shadow-indigo-600/20">
+                      <RotateCcw className="w-7 h-7 animate-spin" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-bold text-white">
+                        {formData.title || 'Platform Under Scheduled Maintenance'}
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        {formData.message || 'We are performing system upgrades to serve you better.'}
+                      </p>
+                    </div>
+
+                    {formData.estimatedEndTime && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-amber-400 font-mono">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Expected Back: {formData.estimatedEndTime}</span>
+                      </div>
+                    )}
+
+                    <div className="pt-2">
+                      <span className="text-[11px] text-slate-500">
+                        Need urgent help? Email {formData.supportEmail || 'support@webin10.com'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Bar */}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div className="text-xs text-slate-500">
+                    Changes take effect immediately on platform status verification.
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleDiscard}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-2.5 rounded-lg text-xs shadow-sm transition disabled:opacity-50"
+                    >
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>{saving ? 'Saving...' : 'Save Maintenance Settings'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 13. CLOUDINARY MEDIA STORAGE TAB */}
             {activeTab === 'cloudinary' && (
               <div className="space-y-6">
                 <div className="p-4 rounded-xl bg-sky-50 border border-sky-100 text-xs text-sky-900 space-y-1">
@@ -2890,6 +3145,69 @@ export default function SystemSettingsPage() {
                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* System Backup Modal Result */}
+        {backupModalResult && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Download className="w-5 h-5 text-sky-600" />
+                  <h3 className="text-base font-bold text-slate-900">System Backup Downloaded</h3>
+                </div>
+                <button
+                  onClick={() => setBackupModalResult(null)}
+                  className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <p className="text-slate-700">
+                  Full platform database snapshot successfully generated and saved to your downloads.
+                </p>
+                <div className="p-2.5 rounded-lg bg-sky-50 border border-sky-200 text-xs font-mono text-sky-800 break-all">
+                  File: {backupModalResult.filename}
+                </div>
+
+                {backupModalResult.summary && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 font-mono text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Tenants Archived:</span>
+                      <span className="text-slate-900 font-bold">{backupModalResult.summary.totalTenants}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Subscription Plans:</span>
+                      <span className="text-slate-900 font-bold">{backupModalResult.summary.totalPlans}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Invoices & Financials:</span>
+                      <span className="text-slate-900 font-bold">{backupModalResult.summary.totalInvoices}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Coupons & Promo Codes:</span>
+                      <span className="text-slate-900 font-bold">{backupModalResult.summary.totalCoupons}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Platform Modules:</span>
+                      <span className="text-slate-900 font-bold">{backupModalResult.summary.totalModules}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => setBackupModalResult(null)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200"
+                >
+                  Done
                 </button>
               </div>
             </div>

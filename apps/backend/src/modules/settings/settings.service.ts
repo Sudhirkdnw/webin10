@@ -37,6 +37,15 @@ export const DEFAULT_THEME_SETTINGS = {
   colorMode: 'light',
 };
 
+export const DEFAULT_MAINTENANCE_SETTINGS = {
+  isEnabled: false,
+  title: 'Platform Under Scheduled Maintenance',
+  message: 'We are performing critical infrastructure and database upgrades to improve system speed and security. Platform services will resume shortly.',
+  estimatedEndTime: '',
+  allowedIps: '',
+  supportEmail: 'support@webin10.com',
+};
+
 @Injectable()
 export class SettingsService {
   constructor(
@@ -376,6 +385,94 @@ export class SettingsService {
         tenantPages: activeTenants.length,
         totalUrls: urlsCount,
       },
+    };
+  }
+
+  /**
+   * Disaster Recovery: 1-Click System Data Export & Backup Snapshot
+   */
+  async exportSystemBackup(adminId: string, ipAddress?: string) {
+    const timestamp = new Date();
+    const [
+      tenants,
+      plans,
+      subscriptions,
+      invoices,
+      settings,
+      categories,
+      modules,
+      featureFlags,
+      coupons,
+    ] = await Promise.all([
+      this.prisma.tenant.findMany({
+        select: { id: true, name: true, slug: true, status: true, createdAt: true, updatedAt: true },
+      }),
+      this.prisma.subscriptionPlan.findMany(),
+      this.prisma.tenantSubscription.findMany({
+        select: { id: true, tenantId: true, planId: true, status: true, currentPeriodStart: true, currentPeriodEnd: true },
+      }),
+      this.prisma.platformInvoice.findMany({
+        select: { id: true, invoiceNumber: true, tenantId: true, amountTotal: true, status: true, createdAt: true },
+      }),
+      this.prisma.systemSetting.findMany(),
+      this.prisma.businessCategory.findMany(),
+      this.prisma.platformModule.findMany(),
+      this.prisma.featureFlag.findMany(),
+      (this.prisma as any).platformCoupon ? (this.prisma as any).platformCoupon.findMany() : [],
+    ]);
+
+    const safeSettings = settings.map((s) => ({
+      ...s,
+      value: this.maskSensitiveData(s.value),
+    }));
+
+    const backupPayload = {
+      meta: {
+        platform: 'Webin10 SaaS Business OS',
+        version: '1.0.0',
+        exportedAt: timestamp.toISOString(),
+        exportedByAdminId: adminId,
+        environment: process.env.NODE_ENV || 'production',
+      },
+      summary: {
+        totalTenants: tenants.length,
+        totalPlans: plans.length,
+        totalSubscriptions: subscriptions.length,
+        totalInvoices: invoices.length,
+        totalCoupons: coupons.length,
+        totalCategories: categories.length,
+        totalModules: modules.length,
+        totalFeatureFlags: featureFlags.length,
+      },
+      data: {
+        tenants,
+        plans,
+        subscriptions,
+        invoices,
+        settings: safeSettings,
+        categories,
+        modules,
+        featureFlags,
+        coupons,
+      },
+    };
+
+    if (adminId) {
+      await this.auditService.log({
+        actorId: adminId,
+        actorType: 'PLATFORM_ADMIN',
+        action: 'SYSTEM_BACKUP_EXPORTED',
+        entity: 'SystemBackup',
+        details: { summary: backupPayload.summary },
+        ipAddress,
+      });
+    }
+
+    return {
+      success: true,
+      filename: `webin10-backup-${timestamp.toISOString().replace(/[:.]/g, '-')}.json`,
+      summary: backupPayload.summary,
+      backup: backupPayload,
     };
   }
 

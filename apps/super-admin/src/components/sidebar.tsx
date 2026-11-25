@@ -22,6 +22,8 @@ import {
   Receipt,
   Activity,
   Megaphone,
+  Ticket,
+  X,
 } from 'lucide-react';
 
 const navigation = [
@@ -32,6 +34,7 @@ const navigation = [
   { name: 'Feature Flags', href: '/features', icon: Flag },
   { name: 'Subscription Plans', href: '/plans', icon: CreditCard },
   { name: 'Revenue & Billing Hub', href: '/billing', icon: Receipt },
+  { name: 'Coupons & Vouchers', href: '/coupons', icon: Ticket },
   { name: 'Announcements & Banners', href: '/announcements', icon: Megaphone },
   { name: 'System Telemetry & Health', href: '/system-telemetry', icon: Activity },
   { name: 'WhatsApp & Messaging', href: '/whatsapp-management', icon: MessageSquare },
@@ -44,15 +47,20 @@ const navigation = [
   { name: 'Audit Logs', href: '/audit-logs', icon: ShieldAlert },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpenOnMobile?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export function Sidebar({ isOpenOnMobile, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
   const { appName, logoUrl, primaryColor } = usePlatformSettings();
 
   const brandInitial = appName ? appName.trim().charAt(0).toUpperCase() : 'W';
 
-  return (
-    <aside className="w-64 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 flex flex-col shrink-0 border-r border-slate-200 dark:border-slate-800 transition-colors duration-200">
-      <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
+  const renderContent = (isMobile = false) => (
+    <>
+      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
         <div className="flex items-center gap-3 overflow-hidden">
           {logoUrl ? (
             <div className="flex items-center gap-2 max-h-10">
@@ -77,6 +85,17 @@ export function Sidebar() {
             </>
           )}
         </div>
+
+        {isMobile && onCloseMobile && (
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+            title="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -88,6 +107,11 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={() => {
+                if (isMobile && onCloseMobile) {
+                  onCloseMobile();
+                }
+              }}
               style={
                 isActive
                   ? { backgroundColor: primaryColor || '#00D09C', color: '#ffffff' }
@@ -110,6 +134,31 @@ export function Sidebar() {
         <p className="font-medium text-slate-700 dark:text-slate-300">{appName || 'Webin10'} SaaS Platform v1.0</p>
         <p className="text-[10px] text-slate-400 dark:text-slate-500">Enterprise Control Center</p>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Persistent Sidebar */}
+      <aside className="hidden md:flex w-64 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 flex-col shrink-0 border-r border-slate-200 dark:border-slate-800 transition-colors duration-200">
+        {renderContent(false)}
+      </aside>
+
+      {/* Mobile Drawer Overlay */}
+      {isOpenOnMobile && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop blur */}
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+            onClick={onCloseMobile}
+          />
+
+          {/* Drawer Panel */}
+          <aside className="relative w-72 max-w-[85vw] bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 flex flex-col shrink-0 shadow-2xl z-10 transition-transform duration-200">
+            {renderContent(true)}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

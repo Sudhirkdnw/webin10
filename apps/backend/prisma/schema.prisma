@@ -921,5 +921,26 @@ model EmailAutomationRule {
   @@map("email_automation_rules")
 }
 
+model PlatformCoupon {
+  id              String       @id @default(uuid())
+  code            String       @unique
+  description     String?
+  discountType    String       @default("PERCENTAGE") @map("discount_type") // "PERCENTAGE" | "FIXED"
+  discountValue   Float        @map("discount_value")
+  maxDiscount     Float?       @map("max_discount")
+  minPurchase     Float?       @default(0) @map("min_purchase")
+  validFrom       DateTime     @default(now()) @map("valid_from")
+  validUntil      DateTime?    @map("valid_until")
+  usageLimit      Int?         @map("usage_limit")
+  usedCount       Int          @default(0) @map("used_count")
+  perTenantLimit  Int          @default(1) @map("per_tenant_limit")
+  applicablePlans Json?        @map("applicable_plans")
+  isEnabled       Boolean      @default(true) @map("is_enabled")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@map("platform_coupons")
+}
+
 
 

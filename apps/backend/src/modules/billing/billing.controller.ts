@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Ip,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -54,6 +55,23 @@ export class BillingController {
   async getExpiring(@Query('days') days?: string) {
     const daysAhead = days ? parseInt(days, 10) : 7;
     return this.billingService.getExpiringSubscriptions(daysAhead);
+  }
+
+  @Post('super-admin/billing/trigger-expiry-alerts')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(
+    PlatformRole.SUPER_ADMIN,
+    PlatformRole.PLATFORM_OWNER,
+    PlatformRole.PLATFORM_FINANCE,
+  )
+  @ApiOperation({ summary: 'Trigger automated WhatsApp and Email plan expiry alerts to expiring businesses' })
+  async triggerExpiryAlerts(
+    @Body() dto: { daysAhead?: number; sendEmail?: boolean; sendWhatsapp?: boolean; specificSubscriptionId?: string },
+    @CurrentUser() admin: AuthenticatedUser,
+    @Ip() ip: string,
+  ) {
+    return this.billingService.triggerExpiryAlerts(dto, admin.id, ip);
   }
 
   @Get('super-admin/billing/invoices')
