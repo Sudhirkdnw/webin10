@@ -77,6 +77,7 @@ model BusinessCategory {
 
   tenants         Tenant[]
   categoryModules CategoryModule[]
+  announcements   PlatformAnnouncement[]
 
   @@map("business_categories")
 }
@@ -288,6 +289,7 @@ model SubscriptionPlan {
   createdAt    DateTime @default(now()) @map("created_at")
 
   subscriptions TenantSubscription[]
+  announcements PlatformAnnouncement[]
 
   @@map("subscription_plans")
 }
@@ -751,4 +753,57 @@ model WhatsAppAutomationRule {
   @@index([tenantId])
   @@map("whatsapp_automation_rules")
 }
+
+// -------------------------------------------------------------
+// 12. PLATFORM-WIDE DASHBOARD ANNOUNCEMENTS & BANNERS
+// -------------------------------------------------------------
+
+enum AnnouncementType {
+  INFO
+  SUCCESS
+  WARNING
+  CRITICAL
+  PROMOTION
+}
+
+enum AnnouncementDisplayType {
+  TOP_BANNER
+  MODAL_POPUP
+}
+
+enum AnnouncementAudience {
+  ALL_BUSINESSES
+  SPECIFIC_CATEGORY
+  SPECIFIC_PLAN
+}
+
+model PlatformAnnouncement {
+  id               String                  @id @default(uuid()) @db.Uuid
+  title            String
+  message          String                  @db.Text
+  type             AnnouncementType        @default(INFO)
+  displayType      AnnouncementDisplayType @default(TOP_BANNER) @map("display_type")
+  targetAudience   AnnouncementAudience    @default(ALL_BUSINESSES) @map("target_audience")
+  targetCategoryId String?                 @map("target_category_id") @db.Uuid
+  targetPlanId     String?                 @map("target_plan_id") @db.Uuid
+  ctaText          String?                 @map("cta_text")
+  ctaUrl           String?                 @map("cta_url")
+  isDismissible    Boolean                 @default(true) @map("is_dismissible")
+  isActive         Boolean                 @default(true) @map("is_active")
+  startsAt         DateTime?               @map("starts_at")
+  expiresAt        DateTime?               @map("expires_at")
+  priority         Int                     @default(0)
+  createdById      String?                 @map("created_by_id") @db.Uuid
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  category         BusinessCategory?       @relation(fields: [targetCategoryId], references: [id], onDelete: SetNull)
+  plan             SubscriptionPlan?       @relation(fields: [targetPlanId], references: [id], onDelete: SetNull)
+
+  @@index([isActive])
+  @@index([targetAudience])
+  @@index([startsAt, expiresAt])
+  @@map("platform_announcements")
+}
+
 

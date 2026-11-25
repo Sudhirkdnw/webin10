@@ -22,6 +22,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
+import { AnnouncementBanner } from './announcement-banner';
 
 interface BusinessShellProps {
   children: React.ReactNode;
@@ -259,6 +260,9 @@ export function BusinessShell({ children }: BusinessShellProps) {
               ))}
             </div>
           )}
+
+          {/* Platform-Wide Announcement Banner (Broadcast from Super Admin) */}
+          <AnnouncementBanner tenantId={tenantId} />
 
           {/* Page Container */}
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">

@@ -832,6 +832,29 @@ async function main() {
     }
   }
 
+  // 12. Seed Platform-Wide Announcement Banner
+  const existingAnnouncement = await prisma.platformAnnouncement.findFirst({
+    where: { title: { contains: 'AI Diet Planner' } },
+  });
+
+  if (!existingAnnouncement) {
+    await prisma.platformAnnouncement.create({
+      data: {
+        title: 'Webin10 is launching AI Diet Planner tonight at 12 AM! 🥗',
+        message: 'We are thrilled to launch the AI Diet & Nutrition Planner for all gyms and fitness studios across India. Enjoy auto-generated calorie charts and macro tracking for your members!',
+        type: 'PROMOTION',
+        displayType: 'TOP_BANNER',
+        targetAudience: 'ALL_BUSINESSES',
+        ctaText: 'Explore AI Feature',
+        ctaUrl: '/customers',
+        isDismissible: true,
+        isActive: true,
+        priority: 10,
+      },
+    });
+    console.log('✓ Seeded Baseline Platform Announcement Banner');
+  }
+
   console.log('--- Baseline Seeding Completed Successfully ---');
 }
 

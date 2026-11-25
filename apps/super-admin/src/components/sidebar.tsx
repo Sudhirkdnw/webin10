@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Receipt,
   Activity,
+  Megaphone,
 } from 'lucide-react';
 
 const navigation = [
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Feature Flags', href: '/features', icon: Flag },
   { name: 'Subscription Plans', href: '/plans', icon: CreditCard },
   { name: 'Revenue & Billing Hub', href: '/billing', icon: Receipt },
+  { name: 'Announcements & Banners', href: '/announcements', icon: Megaphone },
   { name: 'System Telemetry & Health', href: '/system-telemetry', icon: Activity },
   { name: 'WhatsApp & Messaging', href: '/whatsapp-management', icon: MessageSquare },
   { name: 'Dynamic Config', href: '/configurations', icon: Sliders },
