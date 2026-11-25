@@ -250,7 +250,7 @@ export default function TenantsPage() {
                         title={`Login As ${t.name} (Ghost / Support Mode)`}
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        <span>{impersonatingId === t.id ? 'Connecting...' : 'Login As'}</span>
+                        <span>{impersonatingId === t.id ? 'Connecting...' : 'Login As Business'}</span>
                       </button>
                       <Link
                         href={`/tenants/${t.id}`}
