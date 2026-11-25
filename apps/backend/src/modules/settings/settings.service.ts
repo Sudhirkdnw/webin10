@@ -215,10 +215,13 @@ export class SettingsService {
       where: { group },
     });
 
-    let mergedValue = { ...(dto.value || {}) };
+    const existingVal =
+      existing && typeof existing.value === 'object' && existing.value !== null
+        ? (existing.value as Record<string, any>)
+        : {};
+    let mergedValue = { ...existingVal, ...(dto.value || {}) };
 
-    if (existing && typeof existing.value === 'object' && existing.value !== null) {
-      const existingVal = existing.value as Record<string, any>;
+    if (existingVal) {
       // Preserve sensitive keys if they were submitted as masked asterisks
       for (const secretKey of SENSITIVE_KEYS) {
         if (

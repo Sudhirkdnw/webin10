@@ -2237,93 +2237,117 @@ export default function SystemSettingsPage() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {/* Light Mode Option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleFieldChange('colorMode', 'light');
-                        setColorMode('light');
-                      }}
-                      className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
-                        (formData.colorMode || colorMode) === 'light'
-                          ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 shrink-0">
-                        <Sun className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-slate-900 dark:text-white">☀️ Light Mode</p>
-                          {(formData.colorMode || colorMode) === 'light' && (
-                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Clean white/slate sidebar, high contrast daylight UI, soft crisp borders.
-                        </p>
-                      </div>
-                    </button>
+                  {/* 10. COLOR MODE & SIDEBAR THEME */}
+                  <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    {(() => {
+                      const currentSelectedMode = formData.colorMode || colorMode || 'light';
+                      return (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                                Platform Appearance & Sidebar Mode
+                              </label>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                Choose whether your Super Admin sidebar and panels run in Light mode, Dark mode, or follow your OS preference.
+                              </p>
+                            </div>
+                            <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-full border border-indigo-100 dark:border-indigo-800">
+                              Active: {currentSelectedMode.toUpperCase()}
+                            </span>
+                          </div>
 
-                    {/* Dark Mode Option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleFieldChange('colorMode', 'dark');
-                        setColorMode('dark');
-                      }}
-                      className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
-                        (formData.colorMode || colorMode) === 'dark'
-                          ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="p-2 rounded-lg bg-slate-900 dark:bg-slate-800 text-indigo-400 shrink-0">
-                        <Moon className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-slate-900 dark:text-white">🌙 Dark Mode</p>
-                          {(formData.colorMode || colorMode) === 'dark' && (
-                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Executive obsidian dark slate sidebar, reduced eye strain for night shifts.
-                        </p>
-                      </div>
-                    </button>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {/* Light Mode Option */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleFieldChange('colorMode', 'light');
+                                setColorMode('light');
+                              }}
+                              className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                                currentSelectedMode === 'light'
+                                  ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 shrink-0">
+                                <Sun className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-bold text-slate-900 dark:text-white">☀️ Light Mode</p>
+                                  {currentSelectedMode === 'light' && (
+                                    <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                  Clean white/slate sidebar, high contrast daylight UI, soft crisp borders.
+                                </p>
+                              </div>
+                            </button>
 
-                    {/* System Sync Option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleFieldChange('colorMode', 'system');
-                        setColorMode('system');
-                      }}
-                      className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
-                        (formData.colorMode || colorMode) === 'system'
-                          ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 shrink-0">
-                        <Smartphone className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-slate-900 dark:text-white">💻 System Sync</p>
-                          {(formData.colorMode || colorMode) === 'system' && (
-                            <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Automatically switches between Light & Dark based on your operating system setting.
-                        </p>
-                      </div>
-                    </button>
+                            {/* Dark Mode Option */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleFieldChange('colorMode', 'dark');
+                                setColorMode('dark');
+                              }}
+                              className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                                currentSelectedMode === 'dark'
+                                  ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="p-2 rounded-lg bg-slate-900 dark:bg-slate-800 text-indigo-400 shrink-0">
+                                <Moon className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-bold text-slate-900 dark:text-white">🌙 Dark Mode</p>
+                                  {currentSelectedMode === 'dark' && (
+                                    <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                  Executive obsidian dark slate sidebar, reduced eye strain for night shifts.
+                                </p>
+                              </div>
+                            </button>
+
+                            {/* System Sync Option */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleFieldChange('colorMode', 'system');
+                                setColorMode('system');
+                              }}
+                              className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                                currentSelectedMode === 'system'
+                                  ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 shrink-0">
+                                <Smartphone className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-bold text-slate-900 dark:text-white">💻 System Sync</p>
+                                  {currentSelectedMode === 'system' && (
+                                    <CheckCircle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                  Automatically switches between Light & Dark based on your operating system setting.
+                                </p>
+                              </div>
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
