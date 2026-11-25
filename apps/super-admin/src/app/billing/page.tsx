@@ -169,6 +169,319 @@ export default function BillingRevenueHubPage() {
     }
   }
 
+  // Pixel-Perfect Clean A4 GST Invoice Printer & PDF Generator
+  function printInvoiceDocument(data: any) {
+    if (!data?.invoice || !data?.seller) return;
+    const { invoice, seller } = data;
+
+    const printWindow = window.open('', '_blank', 'width=850,height=900');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const invoiceDate = new Date(invoice.createdAt).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    const periodStart = new Date(invoice.billingPeriodStart).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    const periodEnd = new Date(invoice.billingPeriodEnd).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    const subtotal = Number(invoice.amountSubtotal).toFixed(2);
+    const cgst = Number(invoice.cgstAmount).toFixed(2);
+    const sgst = Number(invoice.sgstAmount).toFixed(2);
+    const igst = Number(invoice.igstAmount || 0).toFixed(2);
+    const taxTotal = Number(invoice.taxAmount).toFixed(2);
+    const grandTotal = Number(invoice.amountTotal).toFixed(2);
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <title>GST Tax Invoice - ${invoice.invoiceNumber}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 12mm 15mm;
+            }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              margin: 0;
+              padding: 10px;
+              color: #0f172a;
+              background: #ffffff;
+              font-size: 12px;
+              line-height: 1.5;
+            }
+            .invoice-card {
+              max-width: 800px;
+              margin: 0 auto;
+              border: 1px solid #cbd5e1;
+              padding: 28px;
+              border-radius: 8px;
+            }
+            .header-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 16px;
+              margin-bottom: 20px;
+            }
+            .seller-title {
+              font-size: 18px;
+              font-weight: 800;
+              color: #0f172a;
+              margin: 0;
+            }
+            .seller-sub {
+              font-size: 13px;
+              font-weight: 600;
+              color: #4f46e5;
+              margin: 2px 0 6px 0;
+            }
+            .seller-meta {
+              font-size: 11px;
+              color: #475569;
+              line-height: 1.6;
+            }
+            .badge-box {
+              text-align: right;
+            }
+            .inv-number {
+              display: inline-block;
+              background: #f1f5f9;
+              border: 1px solid #cbd5e1;
+              padding: 5px 12px;
+              font-size: 14px;
+              font-weight: 800;
+              font-family: monospace;
+              color: #0f172a;
+              border-radius: 6px;
+            }
+            .inv-meta {
+              margin-top: 8px;
+              font-size: 11px;
+              color: #475569;
+              line-height: 1.6;
+            }
+            .customer-box {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 14px 16px;
+              margin-bottom: 20px;
+            }
+            .box-title {
+              font-size: 10px;
+              font-weight: 800;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 4px;
+            }
+            .cust-name {
+              font-size: 14px;
+              font-weight: 700;
+              color: #0f172a;
+              margin: 0 0 2px 0;
+            }
+            .cust-meta {
+              font-size: 11px;
+              color: #334155;
+              line-height: 1.5;
+            }
+            .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            .items-table th {
+              background: #f1f5f9;
+              border: 1px solid #cbd5e1;
+              padding: 9px 10px;
+              font-size: 10px;
+              font-weight: 700;
+              color: #334155;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .items-table td {
+              border: 1px solid #e2e8f0;
+              padding: 10px 12px;
+              font-size: 11px;
+              vertical-align: top;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .text-center {
+              text-align: center;
+            }
+            .totals-wrap {
+              display: flex;
+              justify-content: flex-end;
+              margin-bottom: 24px;
+            }
+            .totals-box {
+              width: 300px;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 14px;
+            }
+            .totals-row {
+              display: flex;
+              justify-content: space-between;
+              font-size: 11px;
+              color: #475569;
+              margin-bottom: 5px;
+            }
+            .totals-row.grand {
+              border-top: 2px solid #cbd5e1;
+              padding-top: 8px;
+              margin-top: 8px;
+              font-size: 15px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+            .footer-note {
+              border-top: 1px solid #e2e8f0;
+              padding-top: 14px;
+              text-align: center;
+              font-size: 10px;
+              color: #94a3b8;
+              line-height: 1.5;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-card">
+            <div class="header-row">
+              <div>
+                <h1 class="seller-title">${seller.legalName}</h1>
+                <div class="seller-sub">${seller.tradeName}</div>
+                <div class="seller-meta">
+                  ${seller.address}<br />
+                  <strong>GSTIN:</strong> ${seller.gstin} | <strong>PAN:</strong> ${seller.pan}<br />
+                  <strong>SAC Code:</strong> ${seller.sacCode} (Cloud Software & SaaS Services)<br />
+                  <strong>Email:</strong> ${seller.email} | <strong>Phone:</strong> ${seller.supportPhone}
+                </div>
+              </div>
+              <div class="badge-box">
+                <div class="inv-number">${invoice.invoiceNumber}</div>
+                <div class="inv-meta">
+                  Invoice Date: <strong>${invoiceDate}</strong><br />
+                  Payment Mode: <strong>${invoice.paymentMethod}</strong><br />
+                  ${invoice.paymentReference ? `Ref: <strong>${invoice.paymentReference}</strong><br />` : ''}
+                  Status: <strong style="color: #059669;">${invoice.status}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="customer-box">
+              <div class="box-title">Billed To (Client / Customer):</div>
+              <div class="cust-name">${invoice.customerName}</div>
+              <div class="cust-meta">
+                ${invoice.customerEmail ? `Email: ${invoice.customerEmail}<br />` : ''}
+                ${invoice.customerPhone ? `Phone: ${invoice.customerPhone}<br />` : ''}
+                ${invoice.customerAddress ? `Address: ${invoice.customerAddress}<br />` : ''}
+                ${invoice.customerGstin ? `<strong style="color: #4f46e5;">GSTIN: ${invoice.customerGstin}</strong>` : 'GSTIN: Unregistered Consumer / Composition'}
+              </div>
+            </div>
+
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th class="text-center" style="width: 35px;">#</th>
+                  <th>Description</th>
+                  <th class="text-center" style="width: 65px;">SAC</th>
+                  <th class="text-right" style="width: 95px;">Taxable (₹)</th>
+                  <th class="text-right" style="width: 75px;">CGST (9%)</th>
+                  <th class="text-right" style="width: 75px;">SGST (9%)</th>
+                  <th class="text-right" style="width: 105px;">Total (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="text-center">1</td>
+                  <td>
+                    <strong>Webin10 SaaS Platform - ${invoice.planName}</strong><br />
+                    <span style="font-size: 10px; color: #64748b;">Billing Cycle: ${periodStart} to ${periodEnd}</span>
+                  </td>
+                  <td class="text-center" style="font-family: monospace;">${invoice.hsnCode}</td>
+                  <td class="text-right" style="font-weight: 600;">₹${subtotal}</td>
+                  <td class="text-right">₹${cgst}</td>
+                  <td class="text-right">₹${sgst}</td>
+                  <td class="text-right" style="font-weight: 700; color: #0f172a;">₹${grandTotal}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="totals-wrap">
+              <div class="totals-box">
+                <div class="totals-row">
+                  <span>Taxable Value:</span>
+                  <span style="font-weight: 600;">₹${subtotal}</span>
+                </div>
+                <div class="totals-row">
+                  <span>Central Tax (CGST 9%):</span>
+                  <span>₹${cgst}</span>
+                </div>
+                <div class="totals-row">
+                  <span>State Tax (SGST 9%):</span>
+                  <span>₹${sgst}</span>
+                </div>
+                ${Number(igst) > 0 ? `
+                <div class="totals-row">
+                  <span>Integrated Tax (IGST 18%):</span>
+                  <span>₹${igst}</span>
+                </div>` : ''}
+                <div class="totals-row">
+                  <span>Total GST (18%):</span>
+                  <span>₹${taxTotal}</span>
+                </div>
+                <div class="totals-row grand">
+                  <span>Grand Total:</span>
+                  <span>₹${grandTotal}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="footer-note">
+              This is an electronically generated Official GST Tax Invoice issued under Section 31 of the CGST Act.<br />
+              Subject to Gurugram / Delhi Jurisdiction. Thank you for partnering with Webin10 SaaS!
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+
+    setTimeout(() => {
+      printWindow.print();
+    }, 350);
+  }
+
   // Manual Invoice Creation Submit
   async function handleCreateManualInvoice(e: React.FormEvent) {
     e.preventDefault();
@@ -887,11 +1200,11 @@ export default function BillingRevenueHubPage() {
         {invoiceModalOpen && selectedInvoice && (
           <div
             onClick={() => setInvoiceModalOpen(false)}
-            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto cursor-pointer"
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs overflow-y-auto cursor-pointer flex justify-center items-start p-3 sm:p-6 py-6 sm:py-10"
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-8 cursor-default"
+              className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-2 sm:my-4 cursor-default"
             >
               {/* Modal Top Actions */}
               <div className="flex items-center justify-between border-b border-slate-200 pb-4">
@@ -905,11 +1218,11 @@ export default function BillingRevenueHubPage() {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => window.print()}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    onClick={() => printInvoiceDocument(selectedInvoice)}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
-                    <Printer className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Print Invoice</span>
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print / Save PDF</span>
                   </button>
                   <button
                     onClick={() => setInvoiceModalOpen(false)}
@@ -1059,7 +1372,7 @@ export default function BillingRevenueHubPage() {
                 </p>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => printInvoiceDocument(selectedInvoice)}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5" />
@@ -1082,11 +1395,11 @@ export default function BillingRevenueHubPage() {
         {manualModalOpen && (
           <div
             onClick={() => setManualModalOpen(false)}
-            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs overflow-y-auto cursor-pointer flex justify-center items-start p-4 py-8 sm:py-12"
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 cursor-default"
+              className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 my-2 sm:my-4 cursor-default"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-900">Generate Official GST Tax Invoice</h3>
