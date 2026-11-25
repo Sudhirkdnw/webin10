@@ -35,6 +35,21 @@ export function BusinessShell({ children }: BusinessShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { tenantId, tenantName, isImpersonating, exitImpersonation } = useActiveTenant();
 
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('webin10_impersonate_tenant_id');
+      localStorage.removeItem('webin10_impersonate_tenant_name');
+      localStorage.removeItem('webin10_auth_token');
+      localStorage.removeItem('webin10_refresh_token');
+
+      if (isImpersonating) {
+        exitImpersonation();
+      } else {
+        window.location.href = '/login';
+      }
+    }
+  };
+
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Customers & CRM', href: '/customers', icon: Users, badge: '5' },
@@ -184,16 +199,27 @@ export function BusinessShell({ children }: BusinessShellProps) {
 
           {/* Footer info */}
           <div className="p-4 border-t border-slate-200 bg-slate-50/50">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs">
-                {initials}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0">
+                  {initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-900 truncate">{tenantName}</p>
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {isImpersonating ? 'Super Admin (Support)' : 'Business Owner'}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-900 truncate">{tenantName}</p>
-                <p className="text-[11px] text-slate-500 truncate">
-                  {isImpersonating ? 'Super Admin (Support)' : 'Business Owner'}
-                </p>
-              </div>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
+                title="Log Out of Workspace"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </aside>
@@ -248,6 +274,16 @@ export function BusinessShell({ children }: BusinessShellProps) {
                 <span className="text-xs font-bold text-slate-800 hidden sm:inline truncate max-w-[120px]">
                   {tenantName}
                 </span>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="px-2.5 py-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all ml-1 flex items-center gap-1.5 text-xs font-bold border border-slate-200/80 cursor-pointer"
+                  title="Log out of Business Workspace"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Logout</span>
+                </button>
               </div>
             </div>
           </header>
@@ -274,6 +310,17 @@ export function BusinessShell({ children }: BusinessShellProps) {
                   )}
                 </Link>
               ))}
+
+              <div className="pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold transition-all"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log Out</span>
+                </button>
+              </div>
             </div>
           )}
 
