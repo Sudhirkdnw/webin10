@@ -14,54 +14,38 @@ import {
   Layers,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
+import { getApiBaseUrl } from '@/lib/api';
 
 export default function InventoryPage() {
-  const { tenantName } = useActiveTenant();
+  const API_BASE = getApiBaseUrl();
+  const { tenantId, tenantName } = useActiveTenant();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [items, setItems] = useState([
-    {
-      id: 'inv-1',
-      name: 'Amoxicillin 500mg Capsules',
-      category: 'Antibiotics',
-      sku: 'MED-AMX-500',
-      stock: 45,
-      minStock: 50,
-      unitPrice: '₹140',
-      status: 'LOW_STOCK',
-    },
-    {
-      id: 'inv-2',
-      name: 'Paracetamol 650mg (Dolo)',
-      category: 'Analgesics',
-      sku: 'MED-PCM-650',
-      stock: 240,
-      minStock: 60,
-      unitPrice: '₹32',
-      status: 'IN_STOCK',
-    },
-    {
-      id: 'inv-3',
-      name: 'Whey Protein Isolate 1kg',
-      category: 'Supplements',
-      sku: 'SUP-WPI-1KG',
-      stock: 8,
-      minStock: 10,
-      unitPrice: '₹3,200',
-      status: 'LOW_STOCK',
-    },
-    {
-      id: 'inv-4',
-      name: 'Organic Basmati Rice 5kg',
-      category: 'Groceries',
-      sku: 'GRC-RCE-05',
-      stock: 65,
-      minStock: 20,
-      unitPrice: '₹480',
-      status: 'IN_STOCK',
-    },
-  ]);
+  const loadInventory = async () => {
+    if (!tenantId) return;
+    try {
+      setLoading(true);
+      const url = new URL(`${API_BASE}/tenants/${tenantId}/inventory`);
+      if (searchQuery) url.searchParams.set('search', searchQuery);
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      const payload = json.data || json;
+      if (payload.items) {
+        setItems(payload.items);
+      }
+    } catch (err) {
+      console.error('Failed to load inventory:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadInventory();
+  }, [tenantId, searchQuery]);
 
   const [newItem, setNewItem] = useState({
     name: '',
@@ -72,34 +56,37 @@ export default function InventoryPage() {
     unitPrice: '',
   });
 
-  const handleAddItem = (e: React.FormEvent) => {
+  const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItem.name) return;
+    if (!newItem.name || !tenantId) return;
     const stockQty = parseInt(newItem.stock) || 0;
     const minQty = parseInt(newItem.minStock) || 10;
-    setItems([
-      ...items,
-      {
-        id: `inv-${Date.now()}`,
-        name: newItem.name,
-        category: newItem.category || 'General',
-        sku: newItem.sku || `SKU-${Date.now().toString().slice(-4)}`,
-        stock: stockQty,
-        minStock: minQty,
-        unitPrice: newItem.unitPrice || '₹100',
-        status: stockQty <= minQty ? 'LOW_STOCK' : 'IN_STOCK',
-      },
-    ]);
-    setIsAddModalOpen(false);
-    setNewItem({ name: '', category: '', sku: '', stock: '', minStock: '10', unitPrice: '' });
+
+    try {
+      const res = await fetch(`${API_BASE}/tenants/${tenantId}/inventory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newItem.name,
+          category: newItem.category || 'General',
+          sku: newItem.sku || `SKU-${Date.now().toString().slice(-4)}`,
+          stock: stockQty,
+          minStock: minQty,
+          unitPrice: newItem.unitPrice || '₹100',
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsAddModalOpen(false);
+        setNewItem({ name: '', category: '', sku: '', stock: '', minStock: '10', unitPrice: '' });
+        await loadInventory();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to save inventory item');
+    }
   };
 
-  const filteredItems = items.filter(
-    (i) =>
-      i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      i.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      i.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredItems = items;
 
   return (
     <BusinessShell>

@@ -17,50 +17,38 @@ import {
   Phone,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
+import { getApiBaseUrl } from '@/lib/api';
 
 export default function KhataPage() {
-  const { tenantName } = useActiveTenant();
+  const API_BASE = getApiBaseUrl();
+  const { tenantId, tenantName } = useActiveTenant();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [entries, setEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [entries, setEntries] = useState([
-    {
-      id: 'k-1',
-      customerName: 'Gupta Kirana & General Store',
-      phone: '+91 98234 11223',
-      balanceDue: 4500,
-      lastTxType: 'CREDIT',
-      lastTxDate: '24 Nov 2026',
-      status: 'OVERDUE',
-    },
-    {
-      id: 'k-2',
-      customerName: 'Sunil Kumar (Sharma Ji)',
-      phone: '+91 99341 55667',
-      balanceDue: 1850,
-      lastTxType: 'CREDIT',
-      lastTxDate: 'Yesterday',
-      status: 'PENDING',
-    },
-    {
-      id: 'k-3',
-      customerName: 'Kailash Textiles',
-      phone: '+91 97112 33445',
-      balanceDue: 0,
-      lastTxType: 'PAYMENT',
-      lastTxDate: '22 Nov 2026',
-      status: 'SETTLED',
-    },
-    {
-      id: 'k-4',
-      customerName: 'Manoj Dairy Parlour',
-      phone: '+91 98990 00112',
-      balanceDue: 6200,
-      lastTxType: 'CREDIT',
-      lastTxDate: '18 Nov 2026',
-      status: 'OVERDUE',
-    },
-  ]);
+  const loadKhata = async () => {
+    if (!tenantId) return;
+    try {
+      setLoading(true);
+      const url = new URL(`${API_BASE}/tenants/${tenantId}/khata`);
+      if (searchQuery) url.searchParams.set('search', searchQuery);
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      const payload = json.data || json;
+      if (payload.entries) {
+        setEntries(payload.entries);
+      }
+    } catch (err) {
+      console.error('Failed to load khata:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadKhata();
+  }, [tenantId, searchQuery]);
 
   const [newEntry, setNewEntry] = useState({
     customerName: '',
@@ -69,33 +57,46 @@ export default function KhataPage() {
     type: 'CREDIT',
   });
 
-  const handleAddKhata = (e: React.FormEvent) => {
+  const handleAddKhata = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEntry.customerName || !newEntry.amount) return;
+    if (!newEntry.customerName || !newEntry.amount || !tenantId) return;
     const amt = parseFloat(newEntry.amount) || 0;
-    setEntries([
-      ...entries,
-      {
-        id: `k-${Date.now()}`,
-        customerName: newEntry.customerName,
-        phone: newEntry.phone || '+91 90000 00000',
-        balanceDue: amt,
-        lastTxType: newEntry.type,
-        lastTxDate: 'Today',
-        status: 'PENDING',
-      },
-    ]);
-    setIsAddModalOpen(false);
-    setNewEntry({ customerName: '', phone: '', amount: '', type: 'CREDIT' });
+
+    try {
+      const res = await fetch(`${API_BASE}/tenants/${tenantId}/khata`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: newEntry.customerName,
+          phone: newEntry.phone || '+91 90000 00000',
+          amount: amt,
+          type: newEntry.type,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsAddModalOpen(false);
+        setNewEntry({ customerName: '', phone: '', amount: '', type: 'CREDIT' });
+        await loadKhata();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to save khata entry');
+    }
   };
 
-  const totalDue = entries.reduce((sum, e) => sum + e.balanceDue, 0);
+  const handleSettle = async (id: string) => {
+    if (!tenantId) return;
+    try {
+      await fetch(`${API_BASE}/tenants/${tenantId}/khata/${id}/settle`, { method: 'PATCH' });
+      await loadKhata();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  const filteredEntries = entries.filter(
-    (e) =>
-      e.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.phone.includes(searchQuery)
-  );
+  const totalDue = entries.reduce((sum, e) => sum + (e.balanceDue || 0), 0);
+
+  const filteredEntries = entries;
 
   return (
     <BusinessShell>
@@ -192,14 +193,24 @@ export default function KhataPage() {
                     </div>
                     <div className="text-[11px] text-slate-400">Balance Pending</div>
                   </div>
-                  {e.balanceDue > 0 && (
-                    <button
-                      onClick={() => alert(`WhatsApp payment reminder sent to ${e.customerName} with UPI Pay Link!`)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Send Payment Link</span>
-                    </button>
+                  {e.balanceDue > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => alert(`WhatsApp payment reminder sent to ${e.customerName} with UPI Pay Link!`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Send Link</span>
+                      </button>
+                      <button
+                        onClick={() => handleSettle(e.id)}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg cursor-pointer"
+                      >
+                        Settle
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-semibold text-emerald-600">Settled ✓</span>
                   )}
                 </div>
               </div>

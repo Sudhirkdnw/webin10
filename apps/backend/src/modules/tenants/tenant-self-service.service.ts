@@ -737,6 +737,217 @@ export class TenantSelfService {
       isEnabled: updated.isEnabled,
     };
   }
+
+  // ==========================================
+  // MODULE PERSISTENCE: ATTENDANCE
+  // ==========================================
+  async getAttendance(tenantId: string, date?: string, status?: string, search?: string) {
+    const today = date || new Date().toISOString().split('T')[0];
+    const where: any = { tenantId, date: today };
+    if (status && status !== 'ALL') where.status = status;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+      ];
+    }
+    const records = await this.prisma.attendanceLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+    return { success: true, date: today, records };
+  }
+
+  async recordAttendance(tenantId: string, dto: {
+    name: string;
+    role?: string;
+    phone?: string;
+    checkInTime?: string;
+    method?: string;
+    status?: string;
+    date?: string;
+    whatsappSent?: boolean;
+  }) {
+    const today = dto.date || new Date().toISOString().split('T')[0];
+    const time = dto.checkInTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const log = await this.prisma.attendanceLog.create({
+      data: {
+        tenantId,
+        name: dto.name,
+        role: dto.role || 'Member',
+        phone: dto.phone,
+        checkInTime: dto.status === 'ABSENT' ? '-' : time,
+        date: today,
+        method: dto.method || 'MANUAL',
+        status: dto.status || 'PRESENT',
+        whatsappSent: dto.whatsappSent ?? true,
+      },
+    });
+    return { success: true, data: log };
+  }
+
+  async toggleAttendanceStatus(tenantId: string, logId: string) {
+    const log = await this.prisma.attendanceLog.findFirst({
+      where: { id: logId, tenantId },
+    });
+    if (!log) throw new NotFoundException('Attendance log not found');
+    const newStatus = log.status === 'PRESENT' ? 'ABSENT' : 'PRESENT';
+    const updated = await this.prisma.attendanceLog.update({
+      where: { id: logId },
+      data: { status: newStatus },
+    });
+    return { success: true, data: updated };
+  }
+
+  // ==========================================
+  // MODULE PERSISTENCE: UDHAR KHATA
+  // ==========================================
+  async getKhata(tenantId: string, search?: string, status?: string) {
+    const where: any = { tenantId };
+    if (status && status !== 'ALL') where.status = status;
+    if (search) {
+      where.OR = [
+        { customerName: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+      ];
+    }
+    const entries = await this.prisma.khataEntry.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+    return { success: true, entries };
+  }
+
+  async createKhataEntry(tenantId: string, dto: {
+    customerName: string;
+    phone: string;
+    amount: number;
+    type?: string;
+    notes?: string;
+  }) {
+    const entry = await this.prisma.khataEntry.create({
+      data: {
+        tenantId,
+        customerName: dto.customerName,
+        phone: dto.phone,
+        amount: dto.amount,
+        balanceDue: dto.amount,
+        type: dto.type || 'CREDIT',
+        status: 'PENDING',
+        notes: dto.notes,
+      },
+    });
+    return { success: true, data: entry };
+  }
+
+  async settleKhataEntry(tenantId: string, entryId: string) {
+    await this.prisma.khataEntry.updateMany({
+      where: { id: entryId, tenantId },
+      data: { balanceDue: 0, status: 'SETTLED' },
+    });
+    return { success: true, message: 'Khata entry settled successfully' };
+  }
+
+  // ==========================================
+  // MODULE PERSISTENCE: APPOINTMENTS
+  // ==========================================
+  async getAppointments(tenantId: string, slotDate?: string, status?: string, search?: string) {
+    const where: any = { tenantId };
+    if (slotDate) where.slotDate = slotDate;
+    if (status && status !== 'ALL') where.status = status;
+    if (search) {
+      where.OR = [
+        { clientName: { contains: search, mode: 'insensitive' } },
+        { service: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+      ];
+    }
+    const appointments = await this.prisma.appointment.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+    return { success: true, appointments };
+  }
+
+  async createAppointment(tenantId: string, dto: {
+    clientName: string;
+    phone: string;
+    service: string;
+    stylist?: string;
+    timeSlot: string;
+    slotDate?: string;
+    amount?: string;
+    notes?: string;
+  }) {
+    const today = dto.slotDate || new Date().toISOString().split('T')[0];
+    const appointment = await this.prisma.appointment.create({
+      data: {
+        tenantId,
+        clientName: dto.clientName,
+        phone: dto.phone,
+        service: dto.service,
+        stylist: dto.stylist,
+        timeSlot: dto.timeSlot,
+        slotDate: today,
+        amount: dto.amount || '₹0',
+        status: 'CONFIRMED',
+        notes: dto.notes,
+      },
+    });
+    return { success: true, data: appointment };
+  }
+
+  async updateAppointmentStatus(tenantId: string, appointmentId: string, status: string) {
+    await this.prisma.appointment.updateMany({
+      where: { id: appointmentId, tenantId },
+      data: { status },
+    });
+    return { success: true, message: `Appointment status updated to ${status}` };
+  }
+
+  // ==========================================
+  // MODULE PERSISTENCE: INVENTORY
+  // ==========================================
+  async getInventory(tenantId: string, search?: string) {
+    const where: any = { tenantId };
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    const items = await this.prisma.inventoryItem.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+    return { success: true, items };
+  }
+
+  async createInventoryItem(tenantId: string, dto: {
+    name: string;
+    category?: string;
+    sku: string;
+    stock: number;
+    minStock?: number;
+    unitPrice?: string;
+  }) {
+    const min = dto.minStock ?? 10;
+    const status = dto.stock <= min ? 'LOW_STOCK' : 'IN_STOCK';
+    const item = await this.prisma.inventoryItem.create({
+      data: {
+        tenantId,
+        name: dto.name,
+        category: dto.category || 'General',
+        sku: dto.sku,
+        stock: dto.stock,
+        minStock: min,
+        unitPrice: dto.unitPrice || '₹0',
+        status,
+      },
+    });
+    return { success: true, data: item };
+  }
 }
 
 

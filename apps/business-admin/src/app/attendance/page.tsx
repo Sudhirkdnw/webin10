@@ -40,6 +40,7 @@ interface AttendanceRecord {
 }
 
 export default function AttendancePage() {
+  const API_BASE = getApiBaseUrl();
   const { tenantId, tenantName } = useActiveTenant();
   const { categorySlug, crmLabel, customerSingular } = useTenantModules(tenantId);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +49,7 @@ export default function AttendancePage() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [alertSuccess, setAlertSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // Manual check-in form
   const [manualForm, setManualForm] = useState({
@@ -58,107 +60,80 @@ export default function AttendancePage() {
     sendWhatsApp: true,
   });
 
-  // Initial mock data tailored to the business category
-  const [records, setRecords] = useState<AttendanceRecord[]>([
-    {
-      id: 'att-1',
-      name: 'Rahul Sharma',
-      role: customerSingular || 'Member',
-      phone: '+91 98765 43210',
-      checkInTime: '06:15 AM',
-      method: 'QR_KIOSK',
-      status: 'PRESENT',
-      whatsappSent: true,
-    },
-    {
-      id: 'att-2',
-      name: 'Priya Verma',
-      role: customerSingular || 'Member',
-      phone: '+91 98111 22334',
-      checkInTime: '06:45 AM',
-      method: 'QR_KIOSK',
-      status: 'PRESENT',
-      whatsappSent: true,
-    },
-    {
-      id: 'att-3',
-      name: 'Amit Patel',
-      role: customerSingular || 'Member',
-      phone: '+91 99223 34455',
-      checkInTime: '07:30 AM',
-      method: 'MOBILE_APP',
-      status: 'LATE',
-      whatsappSent: true,
-    },
-    {
-      id: 'att-4',
-      name: 'Vikram Singh',
-      role: 'Staff Trainer',
-      phone: '+91 97334 45566',
-      checkInTime: '06:00 AM',
-      method: 'QR_KIOSK',
-      status: 'PRESENT',
-      whatsappSent: true,
-    },
-    {
-      id: 'att-5',
-      name: 'Sneha Kulkarni',
-      role: customerSingular || 'Member',
-      phone: '+91 96445 56677',
-      checkInTime: '-',
-      method: 'MANUAL',
-      status: 'ABSENT',
-      whatsappSent: false,
-    },
-  ]);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
 
-  const filteredRecords = records.filter((r) => {
-    const matchesSearch =
-      r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.phone.includes(searchQuery);
-    const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Load from database
+  const loadAttendance = async () => {
+    if (!tenantId) return;
+    try {
+      setLoading(true);
+      const url = new URL(`${API_BASE}/tenants/${tenantId}/attendance`);
+      if (selectedDate) url.searchParams.set('date', selectedDate);
+      if (statusFilter !== 'ALL') url.searchParams.set('status', statusFilter);
+      if (searchQuery) url.searchParams.set('search', searchQuery);
+
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      const payload = json.data || json;
+      if (payload.records) {
+        setRecords(payload.records);
+      }
+    } catch (err) {
+      console.error('Failed to load attendance:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAttendance();
+  }, [tenantId, selectedDate, statusFilter, searchQuery]);
+
+  const filteredRecords = records;
 
   const presentCount = records.filter((r) => r.status === 'PRESENT').length;
   const lateCount = records.filter((r) => r.status === 'LATE').length;
   const absentCount = records.filter((r) => r.status === 'ABSENT').length;
   const totalCount = records.length;
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualForm.name.trim()) return;
+    if (!manualForm.name.trim() || !tenantId) return;
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const newRec: AttendanceRecord = {
-      id: `att-${Date.now()}`,
-      name: manualForm.name,
-      role: manualForm.role,
-      phone: manualForm.phone || '+91 90000 00000',
-      checkInTime: manualForm.status === 'ABSENT' ? '-' : timeStr,
-      method: 'MANUAL',
-      status: manualForm.status,
-      whatsappSent: manualForm.sendWhatsApp,
-    };
-
-    setRecords([newRec, ...records]);
-    setIsManualModalOpen(false);
-    setAlertSuccess(
-      `Attendance marked for ${manualForm.name} (${manualForm.status}). ${
-        manualForm.sendWhatsApp ? 'WhatsApp alert dispatched!' : ''
-      }`
-    );
-    setTimeout(() => setAlertSuccess(null), 4000);
-
-    setManualForm({
-      name: '',
-      phone: '',
-      role: customerSingular || 'Member',
-      status: 'PRESENT',
-      sendWhatsApp: true,
-    });
+    try {
+      const res = await fetch(`${API_BASE}/tenants/${tenantId}/attendance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: manualForm.name,
+          role: manualForm.role,
+          phone: manualForm.phone || '+91 90000 00000',
+          status: manualForm.status,
+          date: selectedDate,
+          whatsappSent: manualForm.sendWhatsApp,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsManualModalOpen(false);
+        setAlertSuccess(
+          `Attendance marked & saved to database for ${manualForm.name} (${manualForm.status}). ${
+            manualForm.sendWhatsApp ? 'WhatsApp alert dispatched!' : ''
+          }`
+        );
+        setTimeout(() => setAlertSuccess(null), 4000);
+        setManualForm({
+          name: '',
+          phone: '',
+          role: customerSingular || 'Member',
+          status: 'PRESENT',
+          sendWhatsApp: true,
+        });
+        await loadAttendance();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to record attendance');
+    }
   };
 
   return (
@@ -395,17 +370,15 @@ export default function AttendancePage() {
                       </td>
                       <td className="py-3 px-4 text-right">
                         <button
-                          onClick={() => {
-                            setRecords(
-                              records.map((rec) =>
-                                rec.id === r.id
-                                  ? {
-                                      ...rec,
-                                      status: rec.status === 'PRESENT' ? 'ABSENT' : 'PRESENT',
-                                    }
-                                  : rec
-                              )
-                            );
+                          onClick={async () => {
+                            try {
+                              await fetch(`${API_BASE}/tenants/${tenantId}/attendance/${r.id}/toggle`, {
+                                method: 'PATCH',
+                              });
+                              loadAttendance();
+                            } catch (err) {
+                              console.error(err);
+                            }
                           }}
                           className="text-[11px] text-slate-500 hover:text-slate-900 font-semibold cursor-pointer underline underline-offset-2"
                         >

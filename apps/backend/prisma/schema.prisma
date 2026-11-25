@@ -110,6 +110,10 @@ model Tenant {
   emailCampaigns      EmailCampaign[]
   emailLogs           EmailMessageLog[]
   emailAutomations    EmailAutomationRule[]
+  attendanceLogs      AttendanceLog[]
+  khataEntries        KhataEntry[]
+  appointmentsList    Appointment[]
+  inventoryItems      InventoryItem[]
 
   @@index([status])
   @@index([categoryId])
@@ -947,6 +951,95 @@ model PlatformCoupon {
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
   @@map("platform_coupons")
+}
+
+// ==========================================
+// BUSINESS FUNCTIONAL MODULES MODELS
+// ==========================================
+
+model AttendanceLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  name         String
+  role         String   @default("Member")
+  phone        String?
+  checkInTime  String   @map("check_in_time")
+  checkOutTime String?  @map("check_out_time")
+  date         String   // YYYY-MM-DD
+  method       String   @default("QR_KIOSK") // "QR_KIOSK" | "MOBILE_APP" | "MANUAL"
+  status       String   @default("PRESENT")  // "PRESENT" | "LATE" | "ABSENT"
+  whatsappSent Boolean  @default(false) @map("whatsapp_sent")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, date])
+  @@index([tenantId, status])
+  @@map("attendance_logs")
+}
+
+model KhataEntry {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  customerName String   @map("customer_name")
+  phone        String
+  amount       Float
+  balanceDue   Float    @map("balance_due")
+  type         String   @default("CREDIT") // "CREDIT" | "PAYMENT"
+  status       String   @default("PENDING") // "PENDING" | "OVERDUE" | "SETTLED"
+  notes        String?
+  dueDate      String?  @map("due_date")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("khata_entries")
+}
+
+model Appointment {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  clientName   String   @map("client_name")
+  phone        String
+  service      String
+  stylist      String?  // staff or specialist
+  timeSlot     String   @map("time_slot")
+  slotDate     String   @map("slot_date") // YYYY-MM-DD
+  amount       String   @default("₹0")
+  status       String   @default("CONFIRMED") // "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, slotDate])
+  @@index([tenantId, status])
+  @@map("appointments")
+}
+
+model InventoryItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  category    String   @default("General")
+  sku         String
+  stock       Int      @default(0)
+  minStock    Int      @default(10) @map("min_stock")
+  unitPrice   String   @default("₹0") @map("unit_price")
+  status      String   @default("IN_STOCK") // "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK"
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, sku])
+  @@map("inventory_items")
 }
 
 

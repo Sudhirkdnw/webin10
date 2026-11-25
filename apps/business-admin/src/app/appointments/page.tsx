@@ -17,55 +17,40 @@ import {
   X,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
+import { getApiBaseUrl } from '@/lib/api';
 
 export default function AppointmentsPage() {
-  const { tenantName } = useActiveTenant();
+  const API_BASE = getApiBaseUrl();
+  const { tenantId, tenantName } = useActiveTenant();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<'ALL' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED'>('ALL');
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [appointments, setAppointments] = useState([
-    {
-      id: 'apt-1',
-      clientName: 'Sunita Mehra',
-      phone: '+91 98200 11223',
-      service: 'Keratin Hair Spa & Styling',
-      stylist: 'Kavita Roy',
-      timeSlot: '11:00 AM - 12:30 PM',
-      status: 'CONFIRMED',
-      amount: '₹2,499',
-    },
-    {
-      id: 'apt-2',
-      clientName: 'Rohan Mehra',
-      phone: '+91 97111 88990',
-      service: 'Beard Trim & Classic Haircut',
-      stylist: 'Sameer Khan',
-      timeSlot: '01:00 PM - 01:45 PM',
-      status: 'IN_PROGRESS',
-      amount: '₹650',
-    },
-    {
-      id: 'apt-3',
-      clientName: 'Ananya Deshmukh',
-      phone: '+91 99234 56789',
-      service: 'Bridal Glow Facial & Manicure',
-      stylist: 'Kavita Roy',
-      timeSlot: '03:00 PM - 05:00 PM',
-      status: 'CONFIRMED',
-      amount: '₹4,800',
-    },
-    {
-      id: 'apt-4',
-      clientName: 'Deepak Joshi',
-      phone: '+91 95444 33221',
-      service: 'Ayurvedic Head Massage',
-      stylist: 'Arjun Das',
-      timeSlot: '10:00 AM - 10:45 AM',
-      status: 'COMPLETED',
-      amount: '₹800',
-    },
-  ]);
+  const loadAppointments = async () => {
+    if (!tenantId) return;
+    try {
+      setLoading(true);
+      const url = new URL(`${API_BASE}/tenants/${tenantId}/appointments`);
+      if (selectedStatus !== 'ALL') url.searchParams.set('status', selectedStatus);
+      if (searchQuery) url.searchParams.set('search', searchQuery);
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      const payload = json.data || json;
+      if (payload.appointments) {
+        setAppointments(payload.appointments);
+      }
+    } catch (err) {
+      console.error('Failed to load appointments:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadAppointments();
+  }, [tenantId, selectedStatus, searchQuery]);
 
   const [newApt, setNewApt] = useState({
     clientName: '',
@@ -76,34 +61,50 @@ export default function AppointmentsPage() {
     amount: '₹1,000',
   });
 
-  const handleAddAppointment = (e: React.FormEvent) => {
+  const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newApt.clientName) return;
-    setAppointments([
-      ...appointments,
-      {
-        id: `apt-${Date.now()}`,
-        clientName: newApt.clientName,
-        phone: newApt.phone || '+91 90000 00000',
-        service: newApt.service || 'General Service',
-        stylist: newApt.stylist || 'Assigned Specialist',
-        timeSlot: newApt.timeSlot,
-        status: 'CONFIRMED',
-        amount: newApt.amount,
-      },
-    ]);
-    setIsAddModalOpen(false);
-    setNewApt({ clientName: '', phone: '', service: '', stylist: '', timeSlot: '12:00 PM', amount: '₹1,000' });
+    if (!newApt.clientName || !tenantId) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/tenants/${tenantId}/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: newApt.clientName,
+          phone: newApt.phone || '+91 90000 00000',
+          service: newApt.service || 'General Service',
+          stylist: newApt.stylist || 'Assigned Specialist',
+          timeSlot: newApt.timeSlot,
+          amount: newApt.amount,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsAddModalOpen(false);
+        setNewApt({ clientName: '', phone: '', service: '', stylist: '', timeSlot: '12:00 PM', amount: '₹1,000' });
+        await loadAppointments();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to book appointment');
+    }
   };
 
-  const filteredApts = appointments.filter((a) => {
-    const matchesSearch =
-      a.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.service.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.phone.includes(searchQuery);
-    const matchesStatus = selectedStatus === 'ALL' || a.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    if (!tenantId) return;
+    const nextStatus = currentStatus === 'COMPLETED' ? 'CONFIRMED' : 'COMPLETED';
+    try {
+      await fetch(`${API_BASE}/tenants/${tenantId}/appointments/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      await loadAppointments();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const filteredApts = appointments;
 
   return (
     <BusinessShell>
@@ -232,18 +233,7 @@ export default function AppointmentsPage() {
                     <div className="text-[11px] text-slate-400">{a.phone}</div>
                   </div>
                   <button
-                    onClick={() => {
-                      setAppointments(
-                        appointments.map((item) =>
-                          item.id === a.id
-                            ? {
-                                ...item,
-                                status: item.status === 'COMPLETED' ? 'CONFIRMED' : 'COMPLETED',
-                              }
-                            : item
-                        )
-                      );
-                    }}
+                    onClick={() => handleToggleStatus(a.id, a.status)}
                     className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg cursor-pointer"
                   >
                     {a.status === 'COMPLETED' ? 'Reopen' : 'Mark Done'}

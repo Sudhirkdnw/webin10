@@ -7,6 +7,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -113,6 +114,158 @@ export class TenantSelfServiceController {
     @Body() dto: { moduleKey: string; isEnabled: boolean },
   ) {
     return this.selfService.toggleTenantModule(tenantId, dto.moduleKey, dto.isEnabled);
+  }
+
+  // ==========================================
+  // MODULE PERSISTENCE: ATTENDANCE
+  // ==========================================
+  @Get('attendance')
+  @ApiOperation({ summary: 'Get live attendance records for tenant' })
+  async getAttendance(
+    @Param('tenantId') tenantId: string,
+    @Query('date') date?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.selfService.getAttendance(tenantId, date, status, search);
+  }
+
+  @Post('attendance')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Record attendance punch or manual entry' })
+  async recordAttendance(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: {
+      name: string;
+      role?: string;
+      phone?: string;
+      checkInTime?: string;
+      method?: string;
+      status?: string;
+      date?: string;
+      whatsappSent?: boolean;
+    },
+  ) {
+    return this.selfService.recordAttendance(tenantId, dto);
+  }
+
+  @Patch('attendance/:id/toggle')
+  @ApiOperation({ summary: 'Toggle attendance status between PRESENT and ABSENT' })
+  async toggleAttendance(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.selfService.toggleAttendanceStatus(tenantId, id);
+  }
+
+  // ==========================================
+  // MODULE PERSISTENCE: UDHAR KHATA
+  // ==========================================
+  @Get('khata')
+  @ApiOperation({ summary: 'Get customer udhar khata ledger entries' })
+  async getKhata(
+    @Param('tenantId') tenantId: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.selfService.getKhata(tenantId, search, status);
+  }
+
+  @Post('khata')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Record customer udhar / khata credit or payment' })
+  async createKhata(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: {
+      customerName: string;
+      phone: string;
+      amount: number;
+      type?: string;
+      notes?: string;
+    },
+  ) {
+    return this.selfService.createKhataEntry(tenantId, dto);
+  }
+
+  @Patch('khata/:id/settle')
+  @ApiOperation({ summary: 'Mark customer khata balance as settled' })
+  async settleKhata(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.selfService.settleKhataEntry(tenantId, id);
+  }
+
+  // ==========================================
+  // MODULE PERSISTENCE: APPOINTMENTS
+  // ==========================================
+  @Get('appointments')
+  @ApiOperation({ summary: 'List customer appointments and booking desk slots' })
+  async getAppointments(
+    @Param('tenantId') tenantId: string,
+    @Query('date') date?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.selfService.getAppointments(tenantId, date, status, search);
+  }
+
+  @Post('appointments')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Book new appointment slot' })
+  async createAppointment(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: {
+      clientName: string;
+      phone: string;
+      service: string;
+      stylist?: string;
+      timeSlot: string;
+      slotDate?: string;
+      amount?: string;
+      notes?: string;
+    },
+  ) {
+    return this.selfService.createAppointment(tenantId, dto);
+  }
+
+  @Patch('appointments/:id/status')
+  @ApiOperation({ summary: 'Update appointment slot status' })
+  async updateAppointmentStatus(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: { status: string },
+  ) {
+    return this.selfService.updateAppointmentStatus(tenantId, id, dto.status);
+  }
+
+  // ==========================================
+  // MODULE PERSISTENCE: INVENTORY
+  // ==========================================
+  @Get('inventory')
+  @ApiOperation({ summary: 'Get stock inventory catalog and levels' })
+  async getInventory(
+    @Param('tenantId') tenantId: string,
+    @Query('search') search?: string,
+  ) {
+    return this.selfService.getInventory(tenantId, search);
+  }
+
+  @Post('inventory')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create new SKU / inventory stock item' })
+  async createInventoryItem(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: {
+      name: string;
+      category?: string;
+      sku: string;
+      stock: number;
+      minStock?: number;
+      unitPrice?: string;
+    },
+  ) {
+    return this.selfService.createInventoryItem(tenantId, dto);
   }
 }
 
