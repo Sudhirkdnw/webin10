@@ -388,9 +388,12 @@ export class TenantRegistrationService {
         });
       }
 
-      // 7. Auto-provision Category Default Modules
+      // 7. Auto-provision Category Default & Mandatory Modules
       const defaultCategoryModules = await tx.categoryModule.findMany({
-        where: { categoryId: category.id, isDefault: true },
+        where: {
+          categoryId: category.id,
+          OR: [{ isDefault: true }, { isMandatory: true }],
+        },
       });
 
       if (defaultCategoryModules.length > 0) {
@@ -399,6 +402,7 @@ export class TenantRegistrationService {
             tenantId: tenant.id,
             moduleId: cm.moduleId,
             isEnabled: true,
+            isLocked: cm.isMandatory || false,
           })),
           skipDuplicates: true,
         });

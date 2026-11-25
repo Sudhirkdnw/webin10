@@ -8,8 +8,11 @@ export interface ModuleItem {
   key: string;
   name: string;
   description: string;
+  dependencies?: string[];
   isEnabled: boolean;
   isDefault: boolean;
+  isMandatory?: boolean;
+  isLocked?: boolean;
 }
 
 export interface TenantModulesData {

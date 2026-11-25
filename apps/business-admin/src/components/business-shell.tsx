@@ -28,6 +28,12 @@ import {
   Pill,
   Receipt,
   Boxes,
+  Package,
+  Truck,
+  DollarSign,
+  Clock,
+  ShoppingBag,
+  CheckCheck,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
 import { useTenantModules } from '@/lib/modules';
@@ -136,6 +142,24 @@ export function BusinessShell({ children }: BusinessShellProps) {
       : []),
     ...(activeKeys?.includes('udhar_khata')
       ? [{ name: 'Udhar Khata & Ledger', href: '/khata', icon: Receipt }]
+      : []),
+    ...(activeKeys?.includes('inventory')
+      ? [{ name: 'Inventory & Stock', href: '/inventory', icon: Package }]
+      : []),
+    ...(activeKeys?.includes('procurement')
+      ? [{ name: 'Purchase & Vendors', href: '/procurement', icon: Truck }]
+      : []),
+    ...(activeKeys?.includes('expenses')
+      ? [{ name: 'Expenses & Cashbook', href: '/expenses', icon: DollarSign }]
+      : []),
+    ...(activeKeys?.includes('catalogue')
+      ? [{ name: 'Service & Price Menu', href: '/catalogue', icon: ShoppingBag }]
+      : []),
+    ...(activeKeys?.includes('workforce')
+      ? [{ name: 'Shifts & Rosters', href: '/workforce', icon: Clock }]
+      : []),
+    ...(activeKeys?.includes('reconciliation')
+      ? [{ name: 'Payment Reconciliation', href: '/reconciliation', icon: CheckCheck }]
       : []),
     {
       name: 'WhatsApp Hub',

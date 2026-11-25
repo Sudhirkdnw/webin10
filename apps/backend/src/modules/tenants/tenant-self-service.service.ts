@@ -556,7 +556,7 @@ export class TenantSelfService {
   }
 
   /**
-   * 10. Get Tenant Modules & Available Catalog
+   * 10. Get Tenant Modules & Available Catalog (Strict Matrix Compliance)
    */
   async getTenantModules(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({
@@ -584,18 +584,23 @@ export class TenantSelfService {
       orderBy: { name: 'asc' },
     });
 
-    const categoryDefaultModuleIds = new Set(
-      tenant.category?.categoryModules?.filter((cm) => cm.isDefault).map((cm) => cm.moduleId) || [],
+    // Category mapping lookup
+    const catModuleMap = new Map(
+      tenant.category?.categoryModules?.map((cm) => [cm.moduleId, cm]) || [],
     );
 
-    // If tenant has no modules yet, auto-provision default modules for their category
-    if (tenant.modules.length === 0 && categoryDefaultModuleIds.size > 0) {
-      const defaultToProvision = Array.from(categoryDefaultModuleIds);
+    // If tenant has no modules yet, auto-provision default & mandatory modules for their category
+    if (tenant.modules.length === 0 && catModuleMap.size > 0) {
+      const defaultToProvision = Array.from(catModuleMap.values())
+        .filter((cm) => cm.isDefault || cm.isMandatory)
+        .map((cm) => cm.moduleId);
+
       await this.prisma.tenantModule.createMany({
         data: defaultToProvision.map((modId) => ({
           tenantId,
           moduleId: modId,
           isEnabled: true,
+          isLocked: catModuleMap.get(modId)?.isMandatory || false,
         })),
         skipDuplicates: true,
       });
@@ -608,41 +613,60 @@ export class TenantSelfService {
       tenant.modules = updatedModules;
     }
 
-    const tenantModuleMap = new Map(tenant.modules.map((tm) => [tm.moduleId, tm.isEnabled]));
+    const tenantModuleMap = new Map(tenant.modules.map((tm) => [tm.moduleId, tm]));
 
     const catalog = allPlatformModules.map((m) => {
-      const isDefault = categoryDefaultModuleIds.has(m.id);
-      // If tenantModule exists, use its isEnabled. Otherwise, if it's default, it's enabled by default.
-      const isEnabled = tenantModuleMap.has(m.id)
-        ? Boolean(tenantModuleMap.get(m.id))
-        : isDefault;
+      const catConfig = catModuleMap.get(m.id);
+      const isAvailable = catConfig ? catConfig.isAvailable : false;
+      const isMandatory = catConfig ? catConfig.isMandatory : false;
+      const isDefault = catConfig ? catConfig.isDefault : false;
+
+      const tenantRecord = tenantModuleMap.get(m.id);
+      const isEnabled = isMandatory || (tenantRecord ? tenantRecord.isEnabled : isDefault);
 
       return {
         id: m.id,
         key: m.key,
         name: m.name,
         description: m.description,
+        dependencies: m.dependencies || [],
+        isAvailable,
+        isMandatory,
         isDefault,
         isEnabled,
+        isLocked: isMandatory || (tenantRecord?.isLocked ?? false),
       };
     });
 
-    const activeKeys = catalog.filter((m) => m.isEnabled).map((m) => m.key);
+    // Active keys are enabled and available modules
+    const activeKeys = catalog.filter((m) => m.isEnabled && m.isAvailable).map((m) => m.key);
 
     return {
       tenantId,
       categorySlug: tenant.category?.slug || 'gym',
       categoryName: tenant.category?.name || 'General Business',
       activeKeys,
-      modules: catalog,
+      modules: catalog.filter((m) => m.isAvailable), // Only expose modules available for this vertical
     };
   }
 
   /**
-   * 11. Toggle Tenant Module
+   * 11. Toggle Tenant Module with Mandatory & Dependency Enforcement
    */
   async toggleTenantModule(tenantId: string, moduleKey: string, isEnabled: boolean) {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        category: {
+          include: {
+            categoryModules: {
+              include: { module: true },
+            },
+          },
+        },
+      },
+    });
+
     if (!tenant) {
       throw new NotFoundException(`Tenant '${tenantId}' not found`);
     }
@@ -652,6 +676,32 @@ export class TenantSelfService {
     });
     if (!mod) {
       throw new NotFoundException(`Module with key '${moduleKey}' not found`);
+    }
+
+    // Check category rule
+    const catModule = tenant.category?.categoryModules?.find((cm) => cm.moduleId === mod.id);
+    if (catModule && !catModule.isAvailable) {
+      throw new BadRequestException(`Module '${mod.name}' is not available for ${tenant.category?.name} vertical.`);
+    }
+
+    // Enforce Mandatory Protection
+    if (catModule?.isMandatory && !isEnabled) {
+      throw new BadRequestException(`Module '${mod.name}' is a mandatory core module for ${tenant.category?.name} and cannot be disabled.`);
+    }
+
+    // Dependency Resolution when enabling
+    if (isEnabled && mod.dependencies && mod.dependencies.length > 0) {
+      for (const depKey of mod.dependencies) {
+        const depMod = await this.prisma.platformModule.findUnique({ where: { key: depKey } });
+        if (depMod) {
+          // Auto-enable dependency
+          await this.prisma.tenantModule.upsert({
+            where: { tenantId_moduleId: { tenantId, moduleId: depMod.id } },
+            update: { isEnabled: true },
+            create: { tenantId, moduleId: depMod.id, isEnabled: true },
+          });
+        }
+      }
     }
 
     const updated = await this.prisma.tenantModule.upsert({
@@ -666,6 +716,7 @@ export class TenantSelfService {
         tenantId,
         moduleId: mod.id,
         isEnabled,
+        isLocked: catModule?.isMandatory || false,
       },
       include: { module: true },
     });
@@ -678,4 +729,5 @@ export class TenantSelfService {
     };
   }
 }
+
 

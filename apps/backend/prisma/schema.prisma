@@ -203,12 +203,16 @@ model TenantMember {
 // -------------------------------------------------------------
 
 model PlatformModule {
-  id          String   @id @default(uuid()) @db.Uuid
-  key         String   @unique // e.g. 'crm', 'billing', 'attendance'
-  name        String
-  description String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  key              String   @unique // e.g. 'crm', 'billing', 'attendance_qr'
+  name             String
+  description      String?
+  isActive         Boolean  @default(true) @map("is_active")
+  isPaid           Boolean  @default(false) @map("is_paid")
+  requiresApproval Boolean  @default(false) @map("requires_approval")
+  dependencies     String[] @default([])
+  isDeprecated     Boolean  @default(false) @map("is_deprecated")
+  createdAt        DateTime @default(now()) @map("created_at")
 
   categoryModules CategoryModule[]
   tenantModules   TenantModule[]
@@ -217,26 +221,29 @@ model PlatformModule {
 }
 
 model CategoryModule {
-  id         String         @id @default(uuid()) @db.Uuid
-  categoryId String         @map("category_id") @db.Uuid
-  moduleId   String         @map("module_id") @db.Uuid
-  isDefault  Boolean        @default(true) @map("is_default")
+  id          String   @id @default(uuid()) @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  moduleId    String   @map("module_id") @db.Uuid
+  isMandatory Boolean  @default(false) @map("is_mandatory")
+  isDefault   Boolean  @default(true) @map("is_default")
+  isAvailable Boolean  @default(true) @map("is_available")
 
-  category   BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  module     PlatformModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  category BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  module   PlatformModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([categoryId, moduleId])
   @@map("category_modules")
 }
 
 model TenantModule {
-  id        String         @id @default(uuid()) @db.Uuid
-  tenantId  String         @map("tenant_id") @db.Uuid
-  moduleId  String         @map("module_id") @db.Uuid
-  isEnabled Boolean        @default(true) @map("is_enabled")
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @map("tenant_id") @db.Uuid
+  moduleId  String  @map("module_id") @db.Uuid
+  isEnabled Boolean @default(true) @map("is_enabled")
+  isLocked  Boolean @default(false) @map("is_locked")
 
-  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  module    PlatformModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  module PlatformModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, moduleId])
   @@map("tenant_modules")
