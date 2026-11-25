@@ -98,4 +98,21 @@ export class TenantSelfServiceController {
   ) {
     return this.selfService.removeMember(tenantId, memberId);
   }
+
+  @Get('modules')
+  @ApiOperation({ summary: 'Get active and available feature modules for tenant workspace' })
+  async getModules(@Param('tenantId') tenantId: string) {
+    return this.selfService.getTenantModules(tenantId);
+  }
+
+  @Post('modules/toggle')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Enable or disable a specific feature module for tenant' })
+  async toggleModule(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: { moduleKey: string; isEnabled: boolean },
+  ) {
+    return this.selfService.toggleTenantModule(tenantId, dto.moduleKey, dto.isEnabled);
+  }
 }
+

@@ -22,8 +22,15 @@ import {
   LogOut,
   Mail,
   UserCheck,
+  QrCode,
+  BookOpen,
+  Calendar,
+  Pill,
+  Receipt,
+  Boxes,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
+import { useTenantModules } from '@/lib/modules';
 import { getApiBaseUrl } from '@/lib/api';
 import { AnnouncementBanner } from './announcement-banner';
 
@@ -35,6 +42,7 @@ export function BusinessShell({ children }: BusinessShellProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { tenantId, tenantName, isImpersonating, isReady, exitImpersonation } = useActiveTenant();
+  const { activeKeys, crmLabel, categoryName } = useTenantModules(tenantId);
   const [subInfo, setSubInfo] = useState<{ planName: string; status: string; daysRemaining: number } | null>(null);
 
   useEffect(() => {
@@ -113,7 +121,22 @@ export function BusinessShell({ children }: BusinessShellProps) {
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Customers & CRM', href: '/customers', icon: Users },
+    { name: crmLabel || 'Customers & CRM', href: '/customers', icon: Users },
+    ...(activeKeys?.includes('attendance_qr')
+      ? [{ name: 'Attendance & QR', href: '/attendance', icon: QrCode }]
+      : []),
+    ...(activeKeys?.includes('courses_batches')
+      ? [{ name: 'Batches & Courses', href: '/batches', icon: BookOpen }]
+      : []),
+    ...(activeKeys?.includes('appointments')
+      ? [{ name: 'Appointments & Slots', href: '/appointments', icon: Calendar }]
+      : []),
+    ...(activeKeys?.includes('medicine_refill')
+      ? [{ name: 'Prescriptions & Refills', href: '/refills', icon: Pill }]
+      : []),
+    ...(activeKeys?.includes('udhar_khata')
+      ? [{ name: 'Udhar Khata & Ledger', href: '/khata', icon: Receipt }]
+      : []),
     {
       name: 'WhatsApp Hub',
       href: '/whatsapp',
@@ -129,6 +152,12 @@ export function BusinessShell({ children }: BusinessShellProps) {
     },
     { name: 'Plan & Billing', href: '/billing', icon: CreditCard },
     { name: 'Team & Staff', href: '/team', icon: UserCheck },
+    {
+      name: 'Feature Modules',
+      href: '/modules',
+      icon: Boxes,
+      badge: 'Apps',
+    },
     { name: 'Business Settings', href: '/settings', icon: Settings },
   ];
 

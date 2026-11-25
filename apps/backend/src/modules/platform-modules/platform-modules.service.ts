@@ -101,4 +101,41 @@ export class PlatformModulesService {
 
     return updated;
   }
+
+  async toggleCategoryDefault(categoryId: string, moduleId: string, isDefault: boolean, adminId: string, ip?: string) {
+    const existing = await this.prisma.categoryModule.findUnique({
+      where: {
+        categoryId_moduleId: { categoryId, moduleId },
+      },
+    });
+
+    let record;
+    if (existing) {
+      record = await this.prisma.categoryModule.update({
+        where: { id: existing.id },
+        data: { isDefault },
+      });
+    } else {
+      record = await this.prisma.categoryModule.create({
+        data: { categoryId, moduleId, isDefault },
+      });
+    }
+
+    await this.auditService.log({
+      actorId: adminId,
+      actorType: 'PLATFORM_ADMIN',
+      action: 'category_module.toggle_default',
+      entity: 'category_modules',
+      entityId: record.id,
+      details: { categoryId, moduleId, isDefault },
+      ipAddress: ip,
+    });
+
+    return {
+      success: true,
+      message: `Module default status updated for category.`,
+      record,
+    };
+  }
 }
+

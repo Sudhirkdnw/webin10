@@ -554,4 +554,128 @@ export class TenantSelfService {
       message: 'Staff member removed from workspace.',
     };
   }
+
+  /**
+   * 10. Get Tenant Modules & Available Catalog
+   */
+  async getTenantModules(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        category: {
+          include: {
+            categoryModules: {
+              include: { module: true },
+            },
+          },
+        },
+        modules: {
+          include: { module: true },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant '${tenantId}' not found`);
+    }
+
+    const allPlatformModules = await this.prisma.platformModule.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const categoryDefaultModuleIds = new Set(
+      tenant.category?.categoryModules?.filter((cm) => cm.isDefault).map((cm) => cm.moduleId) || [],
+    );
+
+    // If tenant has no modules yet, auto-provision default modules for their category
+    if (tenant.modules.length === 0 && categoryDefaultModuleIds.size > 0) {
+      const defaultToProvision = Array.from(categoryDefaultModuleIds);
+      await this.prisma.tenantModule.createMany({
+        data: defaultToProvision.map((modId) => ({
+          tenantId,
+          moduleId: modId,
+          isEnabled: true,
+        })),
+        skipDuplicates: true,
+      });
+
+      // Refetch tenant modules
+      const updatedModules = await this.prisma.tenantModule.findMany({
+        where: { tenantId },
+        include: { module: true },
+      });
+      tenant.modules = updatedModules;
+    }
+
+    const tenantModuleMap = new Map(tenant.modules.map((tm) => [tm.moduleId, tm.isEnabled]));
+
+    const catalog = allPlatformModules.map((m) => {
+      const isDefault = categoryDefaultModuleIds.has(m.id);
+      // If tenantModule exists, use its isEnabled. Otherwise, if it's default, it's enabled by default.
+      const isEnabled = tenantModuleMap.has(m.id)
+        ? Boolean(tenantModuleMap.get(m.id))
+        : isDefault;
+
+      return {
+        id: m.id,
+        key: m.key,
+        name: m.name,
+        description: m.description,
+        isDefault,
+        isEnabled,
+      };
+    });
+
+    const activeKeys = catalog.filter((m) => m.isEnabled).map((m) => m.key);
+
+    return {
+      tenantId,
+      categorySlug: tenant.category?.slug || 'gym',
+      categoryName: tenant.category?.name || 'General Business',
+      activeKeys,
+      modules: catalog,
+    };
+  }
+
+  /**
+   * 11. Toggle Tenant Module
+   */
+  async toggleTenantModule(tenantId: string, moduleKey: string, isEnabled: boolean) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new NotFoundException(`Tenant '${tenantId}' not found`);
+    }
+
+    const mod = await this.prisma.platformModule.findUnique({
+      where: { key: moduleKey.trim() },
+    });
+    if (!mod) {
+      throw new NotFoundException(`Module with key '${moduleKey}' not found`);
+    }
+
+    const updated = await this.prisma.tenantModule.upsert({
+      where: {
+        tenantId_moduleId: {
+          tenantId,
+          moduleId: mod.id,
+        },
+      },
+      update: { isEnabled },
+      create: {
+        tenantId,
+        moduleId: mod.id,
+        isEnabled,
+      },
+      include: { module: true },
+    });
+
+    return {
+      success: true,
+      message: `Module '${mod.name}' is now ${isEnabled ? 'enabled' : 'disabled'}.`,
+      moduleKey: mod.key,
+      isEnabled: updated.isEnabled,
+    };
+  }
 }
+

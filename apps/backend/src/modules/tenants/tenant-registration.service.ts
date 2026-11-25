@@ -388,6 +388,22 @@ export class TenantRegistrationService {
         });
       }
 
+      // 7. Auto-provision Category Default Modules
+      const defaultCategoryModules = await tx.categoryModule.findMany({
+        where: { categoryId: category.id, isDefault: true },
+      });
+
+      if (defaultCategoryModules.length > 0) {
+        await tx.tenantModule.createMany({
+          data: defaultCategoryModules.map((cm: any) => ({
+            tenantId: tenant.id,
+            moduleId: cm.moduleId,
+            isEnabled: true,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
       return { tenant, owner, branch };
     });
 

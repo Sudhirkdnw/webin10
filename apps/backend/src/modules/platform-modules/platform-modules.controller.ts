@@ -72,4 +72,19 @@ export class PlatformModulesController {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
     return this.modulesService.updateModule(id, dto, admin.id, ip);
   }
+
+  @Post('categories/:categoryId/toggle')
+  @HttpCode(HttpStatus.OK)
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
+  @ApiOperation({ summary: 'Toggle default assignment of a module to a business category' })
+  async toggleCategoryDefault(
+    @Param('categoryId') categoryId: string,
+    @Body() dto: { moduleId: string; isDefault: boolean },
+    @CurrentUser() admin: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+    return this.modulesService.toggleCategoryDefault(categoryId, dto.moduleId, dto.isDefault, admin.id, ip);
+  }
 }
+
