@@ -118,16 +118,34 @@ export default function BusinessEmailHubPage() {
       ]);
 
       if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
+        const resJson = await statsRes.json();
+        const statsData = resJson?.data || resJson || {};
+        setStats({
+          totalSent: Number(statsData.totalSent) || 0,
+          totalFailed: Number(statsData.totalFailed) || 0,
+          totalCampaigns: Number(statsData.totalCampaigns) || 0,
+          totalSubscribersWithEmail: Number(statsData.totalSubscribersWithEmail) || 0,
+          deliveryRate: statsData.deliveryRate !== undefined ? Number(statsData.deliveryRate) : 100,
+        });
       }
       if (tplRes.ok) {
-        const tplData = await tplRes.json();
-        setTemplates(tplData);
+        const resJson = await tplRes.json();
+        const tplList = Array.isArray(resJson?.data)
+          ? resJson.data
+          : Array.isArray(resJson)
+          ? resJson
+          : [];
+        setTemplates(tplList);
       }
       if (logsRes.ok) {
-        const logsData = await logsRes.json();
-        setLogs(logsData.items || []);
+        const resJson = await logsRes.json();
+        const payload = resJson?.data || resJson || {};
+        const items = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.items)
+          ? payload.items
+          : [];
+        setLogs(items);
       }
     } catch (err) {
       // Fail gracefully
@@ -360,7 +378,7 @@ export default function BusinessEmailHubPage() {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Ready-to-Use Email Templates ({templates.length})</span>
+            <span>Ready-to-Use Email Templates ({Array.isArray(templates) ? templates.length : 0})</span>
           </button>
 
           <button
@@ -372,7 +390,7 @@ export default function BusinessEmailHubPage() {
             }`}
           >
             <Inbox className="w-3.5 h-3.5" />
-            <span>Live Delivery Logs ({logs.length})</span>
+            <span>Live Delivery Logs ({Array.isArray(logs) ? logs.length : 0})</span>
           </button>
         </div>
 
@@ -393,7 +411,7 @@ export default function BusinessEmailHubPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {templates.map((tpl) => (
+              {(Array.isArray(templates) ? templates : []).map((tpl) => (
                 <div
                   key={tpl.id}
                   className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 hover:border-emerald-300 transition-all flex flex-col justify-between"
@@ -497,14 +515,14 @@ export default function BusinessEmailHubPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
-                  {logs.length === 0 ? (
+                  {(Array.isArray(logs) ? logs : []).length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-5 py-8 text-center text-slate-400 font-sans">
                         No email delivery logs recorded yet. Send your first direct email or campaign!
                       </td>
                     </tr>
                   ) : (
-                    logs.map((log) => (
+                    (Array.isArray(logs) ? logs : []).map((log) => (
                       <tr key={log.id} className="hover:bg-slate-50/60 transition-colors font-sans">
                         <td className="px-5 py-3">
                           <span className="font-bold text-slate-900 block">{log.recipientName || 'Member'}</span>
@@ -607,13 +625,13 @@ export default function BusinessEmailHubPage() {
                     value={selectedTemplate}
                     onChange={(e) => {
                       setSelectedTemplate(e.target.value);
-                      const t = templates.find((tpl) => tpl.slug === e.target.value);
+                      const t = (Array.isArray(templates) ? templates : []).find((tpl) => tpl.slug === e.target.value);
                       if (t) setEmailSubject(t.subject);
                     }}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   >
                     <option value="">No Template (Send Custom HTML Message)</option>
-                    {templates.map((t) => (
+                    {(Array.isArray(templates) ? templates : []).map((t) => (
                       <option key={t.id} value={t.slug}>
                         {t.name} ({t.slug})
                       </option>
@@ -748,7 +766,7 @@ export default function BusinessEmailHubPage() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                   >
                     <option value="">Default Brand Promotional Template</option>
-                    {templates.map((t) => (
+                    {(Array.isArray(templates) ? templates : []).map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.name}
                       </option>
