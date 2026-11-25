@@ -227,9 +227,12 @@ export default function BusinessRegisterPage() {
       const tenant = payload.tenant || json.tenant;
       if ((json.success || payload.success) && tenant) {
         setCreatedTenant(tenant);
-        // Save tenant impersonation / active tenant in localStorage
-        localStorage.setItem('webin10_impersonate_tenant_id', tenant.id);
-        localStorage.setItem('webin10_impersonate_tenant_name', tenant.name);
+        // Save tenant info in localStorage (Self-service business registration, NOT Super Admin support mode)
+        localStorage.setItem('webin10_active_tenant_id', tenant.id);
+        localStorage.setItem('webin10_active_tenant_name', tenant.name);
+        localStorage.setItem('webin10_is_support_mode', 'false');
+        localStorage.removeItem('webin10_impersonate_tenant_id');
+        localStorage.removeItem('webin10_impersonate_tenant_name');
 
         setStep(3);
 

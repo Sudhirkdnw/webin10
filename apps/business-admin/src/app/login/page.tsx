@@ -47,9 +47,12 @@ export default function BusinessLoginPage() {
       const payload = json.data || json;
 
       if ((json.success || payload.success) && payload.tenant) {
-        // Save tenant info to localStorage
-        localStorage.setItem('webin10_impersonate_tenant_id', payload.tenant.id);
-        localStorage.setItem('webin10_impersonate_tenant_name', payload.tenant.name);
+        // Save tenant info to localStorage (Normal business login, NOT Super Admin support mode)
+        localStorage.setItem('webin10_active_tenant_id', payload.tenant.id);
+        localStorage.setItem('webin10_active_tenant_name', payload.tenant.name);
+        localStorage.setItem('webin10_is_support_mode', 'false');
+        localStorage.removeItem('webin10_impersonate_tenant_id');
+        localStorage.removeItem('webin10_impersonate_tenant_name');
         router.push('/dashboard');
       } else {
         setErrorMsg(payload.message || json.message || json.error?.message || 'Invalid login credentials.');

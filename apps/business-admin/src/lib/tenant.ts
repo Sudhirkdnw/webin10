@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSuperAdminUrl, getApiBaseUrl } from './api';
 
-const STORAGE_KEY_TENANT_ID = 'webin10_impersonate_tenant_id';
-const STORAGE_KEY_TENANT_NAME = 'webin10_impersonate_tenant_name';
+const STORAGE_KEY_TENANT_ID = 'webin10_active_tenant_id';
+const STORAGE_KEY_TENANT_NAME = 'webin10_active_tenant_name';
+const STORAGE_KEY_IS_SUPPORT_MODE = 'webin10_is_support_mode';
 
 export interface ActiveTenantInfo {
   tenantId: string;
@@ -29,9 +30,11 @@ export function useActiveTenant(): ActiveTenantInfo {
       const urlTenantName = params.get('impersonate_name');
 
       if (urlTenantId) {
+        // Super Admin entered Support / Impersonation Mode
         const decodedName = urlTenantName ? decodeURIComponent(urlTenantName) : 'Business Workspace';
         localStorage.setItem(STORAGE_KEY_TENANT_ID, urlTenantId);
         localStorage.setItem(STORAGE_KEY_TENANT_NAME, decodedName);
+        localStorage.setItem(STORAGE_KEY_IS_SUPPORT_MODE, 'true');
         setTenantId(urlTenantId);
         setTenantName(decodedName);
         setIsImpersonating(true);
@@ -44,8 +47,13 @@ export function useActiveTenant(): ActiveTenantInfo {
         const newUrl = window.location.pathname + (remainingQuery ? `?${remainingQuery}` : '') + window.location.hash;
         window.history.replaceState({}, document.title, newUrl);
       } else {
-        const storedId = localStorage.getItem(STORAGE_KEY_TENANT_ID);
-        const storedName = localStorage.getItem(STORAGE_KEY_TENANT_NAME);
+        const storedId =
+          localStorage.getItem(STORAGE_KEY_TENANT_ID) ||
+          localStorage.getItem('webin10_impersonate_tenant_id');
+        const storedName =
+          localStorage.getItem(STORAGE_KEY_TENANT_NAME) ||
+          localStorage.getItem('webin10_impersonate_tenant_name');
+        const isSupport = localStorage.getItem(STORAGE_KEY_IS_SUPPORT_MODE) === 'true';
 
         if (storedId) {
           // Validate with backend whether this tenant actually exists (has not been deleted)
@@ -56,12 +64,16 @@ export function useActiveTenant(): ActiveTenantInfo {
               if (res.success && res.data) {
                 setTenantId(storedId);
                 setTenantName(res.data.name || storedName || 'Business Workspace');
-                setIsImpersonating(true);
+                // ONLY true if specifically initiated from Super Admin Support Mode!
+                setIsImpersonating(isSupport);
               } else {
                 // Tenant does not exist in DB (was deleted by Super Admin)!
                 console.warn(`Tenant '${storedId}' not found in database. Clearing stale storage.`);
                 localStorage.removeItem(STORAGE_KEY_TENANT_ID);
                 localStorage.removeItem(STORAGE_KEY_TENANT_NAME);
+                localStorage.removeItem(STORAGE_KEY_IS_SUPPORT_MODE);
+                localStorage.removeItem('webin10_impersonate_tenant_id');
+                localStorage.removeItem('webin10_impersonate_tenant_name');
                 setTenantId('');
                 setTenantName('');
                 setIsImpersonating(false);
@@ -71,7 +83,7 @@ export function useActiveTenant(): ActiveTenantInfo {
               // Network fallback
               setTenantId(storedId);
               setTenantName(storedName || '');
-              setIsImpersonating(true);
+              setIsImpersonating(isSupport);
             })
             .finally(() => {
               setIsReady(true);
@@ -95,6 +107,9 @@ export function useActiveTenant(): ActiveTenantInfo {
     try {
       localStorage.removeItem(STORAGE_KEY_TENANT_ID);
       localStorage.removeItem(STORAGE_KEY_TENANT_NAME);
+      localStorage.removeItem(STORAGE_KEY_IS_SUPPORT_MODE);
+      localStorage.removeItem('webin10_impersonate_tenant_id');
+      localStorage.removeItem('webin10_impersonate_tenant_name');
     } catch (e) {
       // ignore storage access errors
     }

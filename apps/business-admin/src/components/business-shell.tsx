@@ -52,6 +52,9 @@ export function BusinessShell({ children }: BusinessShellProps) {
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
+      localStorage.removeItem('webin10_active_tenant_id');
+      localStorage.removeItem('webin10_active_tenant_name');
+      localStorage.removeItem('webin10_is_support_mode');
       localStorage.removeItem('webin10_impersonate_tenant_id');
       localStorage.removeItem('webin10_impersonate_tenant_name');
       localStorage.removeItem('webin10_auth_token');

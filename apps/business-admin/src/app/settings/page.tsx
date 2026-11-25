@@ -118,7 +118,7 @@ export default function BusinessSettingsPage() {
         setSuccessMsg('Business Profile & Branding updated successfully! Changes are live across all receipts and portals.');
         // Also update local storage if tenantName changed
         if (form.name.trim()) {
-          localStorage.setItem('webin10_impersonate_tenant_name', form.name.trim());
+          localStorage.setItem('webin10_active_tenant_name', form.name.trim());
         }
       } else {
         setErrorMsg(json.error?.message || 'Failed to update profile settings.');
