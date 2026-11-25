@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -24,6 +24,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
+import { getApiBaseUrl } from '@/lib/api';
 import { AnnouncementBanner } from './announcement-banner';
 
 interface BusinessShellProps {
@@ -93,9 +94,24 @@ export function BusinessShell({ children }: BusinessShellProps) {
     );
   }
 
+  const [subInfo, setSubInfo] = useState<{ planName: string; status: string; daysRemaining: number } | null>(null);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    const API_BASE = getApiBaseUrl();
+    fetch(`${API_BASE}/tenants/${tenantId}/subscription`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data?.currentSubscription) {
+          setSubInfo(d.data.currentSubscription);
+        }
+      })
+      .catch(() => {});
+  }, [tenantId]);
+
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Customers & CRM', href: '/customers', icon: Users, badge: '5' },
+    { name: 'Customers & CRM', href: '/customers', icon: Users },
     {
       name: 'WhatsApp Hub',
       href: '/whatsapp',
@@ -162,22 +178,26 @@ export function BusinessShell({ children }: BusinessShellProps) {
             </div>
           </div>
 
-          {/* Tenant Switcher & Quick Credits */}
+          {/* Tenant Active Plan Status */}
           <div className="p-3 mx-3 my-3 bg-emerald-50/60 border border-emerald-100 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">
-                <Zap className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                <Sparkles className="w-3.5 h-3.5" />
               </div>
-              <div>
-                <p className="text-[11px] font-semibold text-emerald-950">WhatsApp Credits</p>
-                <p className="text-xs font-bold text-emerald-700">₹500.00 balance</p>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-emerald-950 truncate">
+                  {subInfo?.planName || 'Active Workspace'}
+                </p>
+                <p className="text-[10px] font-semibold text-emerald-700">
+                  {subInfo?.daysRemaining !== undefined ? `${subInfo.daysRemaining} days left` : 'Live SaaS'}
+                </p>
               </div>
             </div>
             <Link
-              href="/whatsapp"
-              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-white px-2 py-1 rounded shadow-2xs border border-emerald-200"
+              href="/billing"
+              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-white px-2 py-1 rounded shadow-2xs border border-emerald-200 shrink-0"
             >
-              Recharge
+              Manage
             </Link>
           </div>
 
