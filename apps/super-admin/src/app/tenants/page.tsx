@@ -147,8 +147,8 @@ export default function TenantsPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Business Tenants</h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Business Tenants</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Manage registered businesses, isolated workspaces, branches and statuses
             </p>
           </div>
@@ -171,14 +171,14 @@ export default function TenantsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by business name or slug..."
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-lg text-sm focus:outline-none focus:border-indigo-500"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-indigo-500"
+            className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
           >
             <option value="">All Statuses</option>
             <option value="ACTIVE">ACTIVE</option>
@@ -187,9 +187,9 @@ export default function TenantsPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="px-6 py-3.5">Business Name</th>
                 <th className="px-6 py-3.5">Vertical</th>
@@ -199,7 +199,7 @@ export default function TenantsPage() {
                 <th className="px-6 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs">
@@ -214,29 +214,29 @@ export default function TenantsPage() {
                 </tr>
               ) : (
                 tenants.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
+                  <tr key={t.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="px-6 py-4">
-                      <Link href={`/tenants/${t.id}`} className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors">
+                      <Link href={`/tenants/${t.id}`} className="font-semibold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
                         {t.name}
                       </Link>
-                      <div className="text-xs text-slate-400 font-mono">{t.slug}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500 font-mono">{t.slug}</div>
                     </td>
-                    <td className="px-6 py-4 text-slate-600 font-medium">
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-medium">
                       {t.category?.name || 'Default'}
                     </td>
-                    <td className="px-6 py-4 text-slate-600 text-xs">
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400 text-xs">
                       {t.branchesCount || 1} Branches • {t.membersCount || 1} Staff
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
+                    <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
                       <div>{t.contact?.phone || 'N/A'}</div>
-                      <div className="text-slate-400">{t.contact?.email}</div>
+                      <div className="text-slate-400 dark:text-slate-500">{t.contact?.email}</div>
                     </td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
                           t.status === 'ACTIVE'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                            : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
                         }`}
                       >
                         {t.status}
@@ -286,38 +286,38 @@ export default function TenantsPage() {
         {/* Create Modal */}
         {modalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900 mb-1">Register New Business Tenant</h2>
-              <p className="text-xs text-slate-500 mb-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Register New Business Tenant</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
                 Sets up isolated workspace, owner account, default branch and initial subscription
               </p>
 
               {error && (
-                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs">
+                <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-400 text-xs">
                   {error}
                 </div>
               )}
 
               <form onSubmit={handleCreateTenant} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Business Name</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Business Name</label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Golds Gym Koramangala"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Business Vertical</label>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Business Vertical</label>
                     <select
                       value={categorySlug}
                       onChange={(e) => setCategorySlug(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                     >
                       {categories.map((c) => (
                         <option key={c.slug} value={c.slug}>
@@ -328,11 +328,11 @@ export default function TenantsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Initial Plan</label>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Initial Plan</label>
                     <select
                       value={planSlug}
                       onChange={(e) => setPlanSlug(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                     >
                       {plans.map((p) => (
                         <option key={p.slug} value={p.slug}>
@@ -344,32 +344,32 @@ export default function TenantsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Owner Name</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Owner Name</label>
                   <input
                     type="text"
                     required
                     value={ownerName}
                     onChange={(e) => setOwnerName(e.target.value)}
                     placeholder="Full name of business owner"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Owner Email</label>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Owner Email</label>
                     <input
                       type="email"
                       required
                       value={ownerEmail}
                       onChange={(e) => setOwnerEmail(e.target.value)}
                       placeholder="owner@business.com"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Owner Mobile (10 digits)</label>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Owner Mobile (10 digits)</label>
                     <input
                       type="text"
                       required
@@ -377,23 +377,23 @@ export default function TenantsPage() {
                       value={ownerPhone}
                       onChange={(e) => setOwnerPhone(e.target.value)}
                       placeholder="9876543210"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                    className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-sm disabled:opacity-50"
+                    className="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-sm disabled:opacity-50 transition-colors"
                   >
                     {saving ? 'Creating Tenant...' : 'Create Tenant'}
                   </button>
