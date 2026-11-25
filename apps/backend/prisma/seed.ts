@@ -667,6 +667,171 @@ async function main() {
     console.log(`✓ Demo Tenant FitZone seeded with WhatsApp Account, Customers and Automation Rules`);
   }
 
+  // 10. Seed Sample Financial Invoices & Expiring Subscriptions
+  const gymCategory = await prisma.businessCategory.findFirst({ where: { slug: 'gym' } });
+  const proPlan = await prisma.subscriptionPlan.findFirst({ where: { slug: 'professional' } });
+  const growthPlan = await prisma.subscriptionPlan.findFirst({ where: { slug: 'growth' } });
+  const starterPlan = await prisma.subscriptionPlan.findFirst({ where: { slug: 'starter' } });
+
+  if (gymCategory && proPlan && growthPlan && starterPlan) {
+    // 1. Alpha Power Gym (Expiring in 3 Days)
+    const alphaGym = await prisma.tenant.upsert({
+      where: { slug: 'alpha-power-gym' },
+      update: {},
+      create: {
+        name: 'Alpha Power Gym',
+        slug: 'alpha-power-gym',
+        status: 'ACTIVE',
+        categoryId: gymCategory.id,
+      },
+    });
+
+    await prisma.businessProfile.upsert({
+      where: { tenantId: alphaGym.id },
+      update: {},
+      create: {
+        tenantId: alphaGym.id,
+        legalName: 'Alpha Power Fitness LLP',
+        taxId: '07AABCA1234F1Z9',
+        phone: '+919876543210',
+        email: 'billing@alphagym.in',
+        address: 'Sector 14, Connaught Place, New Delhi - 110001',
+      },
+    });
+
+    const alphaExpiry = new Date();
+    alphaExpiry.setDate(alphaExpiry.getDate() + 3); // Expiring in 3 days!
+
+    const alphaSub = await prisma.tenantSubscription.create({
+      data: {
+        tenantId: alphaGym.id,
+        planId: growthPlan.id,
+        status: 'ACTIVE',
+        currentPeriodStart: new Date(Date.now() - 27 * 86400000),
+        currentPeriodEnd: alphaExpiry,
+      },
+    });
+
+    // 2. Titan Crossfit Arena (Expired 2 Days ago)
+    const titanGym = await prisma.tenant.upsert({
+      where: { slug: 'titan-crossfit-arena' },
+      update: {},
+      create: {
+        name: 'Titan Crossfit Arena',
+        slug: 'titan-crossfit-arena',
+        status: 'ACTIVE',
+        categoryId: gymCategory.id,
+      },
+    });
+
+    await prisma.businessProfile.upsert({
+      where: { tenantId: titanGym.id },
+      update: {},
+      create: {
+        tenantId: titanGym.id,
+        legalName: 'Titan Crossfit Private Limited',
+        taxId: '27AABCT9988G1ZQ',
+        phone: '+919811223344',
+        email: 'contact@titancrossfit.in',
+        address: 'Bandra West, Mumbai, Maharashtra - 400050',
+      },
+    });
+
+    const titanExpiry = new Date();
+    titanExpiry.setDate(titanExpiry.getDate() - 2); // Expired 2 days ago!
+
+    await prisma.tenantSubscription.create({
+      data: {
+        tenantId: titanGym.id,
+        planId: starterPlan.id,
+        status: 'EXPIRED',
+        currentPeriodStart: new Date(Date.now() - 32 * 86400000),
+        currentPeriodEnd: titanExpiry,
+      },
+    });
+
+    // 3. Seed Sample GST Tax Invoices
+    const existingInvoices = await prisma.platformInvoice.count();
+    const fitzoneTenant = await prisma.tenant.findUnique({ where: { slug: 'fitzone-club' } });
+    if (existingInvoices === 0) {
+      await prisma.platformInvoice.createMany({
+        data: [
+          {
+            invoiceNumber: 'INV-2026-0001',
+            tenantId: fitzoneTenant ? fitzoneTenant.id : alphaGym.id,
+            planName: 'Professional Plan (Annual Growth)',
+            amountSubtotal: 1999.00,
+            taxPercentage: 18.00,
+            cgstAmount: 179.91,
+            sgstAmount: 179.91,
+            igstAmount: 0.00,
+            taxAmount: 359.82,
+            amountTotal: 2358.82,
+            hsnCode: '998313',
+            status: 'PAID',
+            billingPeriodStart: new Date(Date.now() - 10 * 86400000),
+            billingPeriodEnd: new Date(Date.now() + 20 * 86400000),
+            paidAt: new Date(Date.now() - 10 * 86400000),
+            paymentMethod: 'RAZORPAY',
+            paymentReference: 'pay_NzY12891Kj0',
+            customerName: 'FitZone Club',
+            customerEmail: 'fitzone@webin10.com',
+            customerPhone: '+91 70796 83967',
+            customerGstin: '07AAAAW9999A1Z1',
+            customerAddress: 'South Extension Part II, New Delhi - 110049',
+          },
+          {
+            invoiceNumber: 'INV-2026-0002',
+            tenantId: alphaGym.id,
+            planName: 'Growth Plan (Monthly)',
+            amountSubtotal: 999.00,
+            taxPercentage: 18.00,
+            cgstAmount: 89.91,
+            sgstAmount: 89.91,
+            igstAmount: 0.00,
+            taxAmount: 179.82,
+            amountTotal: 1178.82,
+            hsnCode: '998313',
+            status: 'PAID',
+            billingPeriodStart: new Date(Date.now() - 27 * 86400000),
+            billingPeriodEnd: alphaExpiry,
+            paidAt: new Date(Date.now() - 27 * 86400000),
+            paymentMethod: 'RAZORPAY',
+            paymentReference: 'pay_Alpha88392Xz',
+            customerName: 'Alpha Power Gym',
+            customerEmail: 'billing@alphagym.in',
+            customerPhone: '+919876543210',
+            customerGstin: '07AABCA1234F1Z9',
+            customerAddress: 'Sector 14, Connaught Place, New Delhi - 110001',
+          },
+          {
+            invoiceNumber: 'INV-2026-0003',
+            tenantId: titanGym.id,
+            planName: 'Starter Tier Renewal',
+            amountSubtotal: 499.00,
+            taxPercentage: 18.00,
+            cgstAmount: 0.00,
+            sgstAmount: 0.00,
+            igstAmount: 89.82, // Interstate IGST Maharashtra to Haryana
+            taxAmount: 89.82,
+            amountTotal: 588.82,
+            hsnCode: '998313',
+            status: 'PENDING',
+            billingPeriodStart: new Date(),
+            billingPeriodEnd: new Date(Date.now() + 30 * 86400000),
+            paymentMethod: 'RAZORPAY',
+            customerName: 'Titan Crossfit Arena',
+            customerEmail: 'contact@titancrossfit.in',
+            customerPhone: '+919811223344',
+            customerGstin: '27AABCT9988G1ZQ',
+            customerAddress: 'Bandra West, Mumbai, Maharashtra - 400050',
+          },
+        ],
+      });
+      console.log('✓ Seeded Baseline GST Invoices & Expiring Subscriptions');
+    }
+  }
+
   console.log('--- Baseline Seeding Completed Successfully ---');
 }
 

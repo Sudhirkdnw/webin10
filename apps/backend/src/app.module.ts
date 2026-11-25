@@ -19,6 +19,7 @@ import { EmailTemplatesModule } from './modules/email-templates/email-templates.
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
 import { LogRetentionModule } from './modules/log-retention/log-retention.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { LogRetentionModule } from './modules/log-retention/log-retention.module
     UploadsModule,
     WhatsAppModule,
     LogRetentionModule,
+    BillingModule,
   ],
 })
 export class AppModule {}

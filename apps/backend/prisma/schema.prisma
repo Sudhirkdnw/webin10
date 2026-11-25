@@ -96,6 +96,7 @@ model Tenant {
   members      TenantMember[]
   modules      TenantModule[]
   subscriptions TenantSubscription[]
+  invoices     PlatformInvoice[]
   featureOverrides TenantFeatureOverride[]
   auditLogs    AuditLog[]
   supportRequests SupportAccessRequest[]
@@ -305,6 +306,51 @@ model TenantSubscription {
 
   @@index([tenantId])
   @@map("tenant_subscriptions")
+}
+
+enum InvoiceStatus {
+  PAID
+  PENDING
+  OVERDUE
+  VOID
+  REFUNDED
+}
+
+model PlatformInvoice {
+  id                 String        @id @default(uuid()) @db.Uuid
+  invoiceNumber      String        @unique @map("invoice_number")
+  tenantId           String        @map("tenant_id") @db.Uuid
+  subscriptionId     String?       @map("subscription_id") @db.Uuid
+  planName           String        @map("plan_name")
+  amountSubtotal     Decimal       @map("amount_subtotal") @db.Decimal(10, 2)
+  taxPercentage      Decimal       @default(18.0) @map("tax_percentage") @db.Decimal(5, 2)
+  cgstAmount         Decimal       @default(0.0) @map("cgst_amount") @db.Decimal(10, 2)
+  sgstAmount         Decimal       @default(0.0) @map("sgst_amount") @db.Decimal(10, 2)
+  igstAmount         Decimal       @default(0.0) @map("igst_amount") @db.Decimal(10, 2)
+  taxAmount          Decimal       @map("tax_amount") @db.Decimal(10, 2)
+  amountTotal        Decimal       @map("amount_total") @db.Decimal(10, 2)
+  hsnCode            String        @default("998313") @map("hsn_code")
+  status             InvoiceStatus @default(PAID)
+  billingPeriodStart DateTime      @map("billing_period_start")
+  billingPeriodEnd   DateTime      @map("billing_period_end")
+  paidAt             DateTime?     @map("paid_at")
+  paymentMethod      String        @default("RAZORPAY") @map("payment_method")
+  paymentReference   String?       @map("payment_reference")
+  customerName       String        @map("customer_name")
+  customerEmail      String        @map("customer_email")
+  customerPhone      String?       @map("customer_phone")
+  customerGstin      String?       @map("customer_gstin")
+  customerAddress    String?       @map("customer_address")
+  notes              String?
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("platform_invoices")
 }
 
 // -------------------------------------------------------------
