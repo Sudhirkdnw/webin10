@@ -439,6 +439,80 @@ export class TenantRegistrationService {
     };
   }
 
+  /**
+   * 5. Business User Login (Email or Phone + Password)
+   */
+  async loginBusinessUser(dto: { identifier: string; password?: string }) {
+    const identifier = dto.identifier.trim().toLowerCase();
+    const cleanPhone = dto.identifier.trim().replace(/\s+/g, '');
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: identifier },
+          { phone: cleanPhone },
+          { phone: `+91${cleanPhone}` },
+        ],
+      },
+      include: {
+        memberships: {
+          include: {
+            tenant: {
+              include: {
+                subscriptions: {
+                  include: { plan: true },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
+          },
+          where: { isActive: true },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('No business account found with this email or mobile number.');
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException('Your account has been deactivated. Please contact support.');
+    }
+
+    // If password provided and user has passwordHash, check with bcrypt
+    if (user.passwordHash && dto.password) {
+      const isValid = await bcrypt.compare(dto.password, user.passwordHash);
+      if (!isValid) {
+        throw new BadRequestException('Incorrect password. Please try again.');
+      }
+    }
+
+    const primaryMembership = user.memberships[0];
+    const tenant = primaryMembership?.tenant;
+
+    return {
+      success: true,
+      message: 'Authentication successful',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: primaryMembership?.role || 'BUSINESS_OWNER',
+      },
+      tenant: tenant
+        ? {
+            id: tenant.id,
+            name: tenant.name,
+            slug: tenant.slug,
+            status: tenant.status,
+            plan: tenant.subscriptions[0]?.plan?.name || '14-Day Free Trial',
+          }
+        : null,
+    };
+  }
+
   private cleanExpiredRegistrations() {
     const now = Date.now();
     for (const [token, rec] of this.pendingRegistrations.entries()) {

@@ -57,4 +57,17 @@ export class TenantRegistrationController {
   ) {
     return this.registrationService.verifyAndRegister(dto);
   }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Business owner & staff authentication' })
+  async loginBusiness(
+    @Body()
+    dto: {
+      identifier: string;
+      password?: string;
+    },
+  ) {
+    return this.registrationService.loginBusinessUser(dto);
+  }
 }

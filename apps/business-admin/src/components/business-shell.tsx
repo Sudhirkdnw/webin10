@@ -36,7 +36,7 @@ export function BusinessShell({ children }: BusinessShellProps) {
   const { tenantId, tenantName, isImpersonating, exitImpersonation } = useActiveTenant();
 
   const navItems = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Customers & CRM', href: '/customers', icon: Users, badge: '5' },
     {
       name: 'WhatsApp Hub',

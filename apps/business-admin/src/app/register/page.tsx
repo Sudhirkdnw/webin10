@@ -235,7 +235,7 @@ export default function BusinessRegisterPage() {
 
         // Auto redirect to dashboard after 2.5 seconds
         setTimeout(() => {
-          router.push('/');
+          router.push('/dashboard');
         }, 2500);
       } else {
         setErrorMsg(payload.message || json.message || json.error?.message || 'Verification failed. Please check your OTPs.');
@@ -267,7 +267,7 @@ export default function BusinessRegisterPage() {
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-400 hidden sm:inline">Already registered?</span>
             <Link
-              href="/"
+              href="/login"
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all border border-slate-700"
             >
               Sign In to Workspace
@@ -695,7 +695,7 @@ export default function BusinessRegisterPage() {
 
             <div>
               <Link
-                href="/"
+                href="/dashboard"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-sm transition-all shadow-md"
               >
                 <span>Go to Dashboard Now</span>
