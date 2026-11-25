@@ -4,6 +4,12 @@ import * as nodemailer from 'nodemailer';
 import { SendDirectEmailDto } from './dto/send-direct-email.dto';
 import { CreateEmailCampaignDto } from './dto/create-email-campaign.dto';
 import { ListEmailLogsDto } from './dto/list-email-logs.dto';
+import {
+  SuperAdminBroadcastDto,
+  SuperAdminBroadcastAudience,
+  SuperAdminSendDirectEmailDto,
+  UpdateSmtpConfigDto,
+} from './dto/super-admin-broadcast.dto';
 import { EmailMessageStatus, Prisma } from '@prisma/client';
 
 export interface SendMailOptions {
@@ -500,5 +506,336 @@ export class MailService {
       where,
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  // =============================================================
+  // SUPER ADMIN EMAIL & BROADCAST HUB METHODS
+  // =============================================================
+
+  /**
+   * SUPER ADMIN: Get platform-wide email statistics
+   */
+  async getSuperAdminEmailStats() {
+    const [
+      totalSent,
+      totalFailed,
+      totalCampaigns,
+      totalGymTenants,
+      smtpConfig,
+    ] = await Promise.all([
+      this.prisma.emailMessageLog.count({ where: { status: 'SENT' } }),
+      this.prisma.emailMessageLog.count({ where: { status: 'FAILED' } }),
+      this.prisma.emailCampaign.count(),
+      this.prisma.tenant.count(),
+      this.getMailConfig(),
+    ]);
+
+    // Count tenants reachable by email
+    const tenantsWithProfile = await this.prisma.businessProfile.count({
+      where: { email: { not: '' } },
+    });
+
+    const total = totalSent + totalFailed;
+    const deliveryRate = total > 0 ? Math.round((totalSent / total) * 100) : 100;
+
+    return {
+      totalSent,
+      totalFailed,
+      totalCampaigns,
+      totalGymTenants,
+      totalAudienceReachable: tenantsWithProfile || totalGymTenants,
+      deliveryRate,
+      smtpConfigured: Boolean(smtpConfig.password && smtpConfig.username),
+      smtpProvider: smtpConfig.provider || 'custom',
+      fromEmail: smtpConfig.fromEmail,
+    };
+  }
+
+  /**
+   * SUPER ADMIN: Get list of Gyms with their contact emails and status
+   */
+  async getSuperAdminGymsList() {
+    const tenants = await this.prisma.tenant.findMany({
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        profile: {
+          select: { email: true, phone: true, legalName: true },
+        },
+        members: {
+          where: { role: 'BUSINESS_OWNER', isActive: true },
+          take: 1,
+          select: {
+            user: { select: { email: true, name: true } },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    const formatted = tenants.map((t) => {
+      const ownerEmail = t.profile?.email || t.members[0]?.user?.email || null;
+      const ownerName = t.members[0]?.user?.name || t.profile?.legalName || t.name;
+      return {
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        status: t.status,
+        email: ownerEmail,
+        ownerName,
+        phone: t.profile?.phone || null,
+      };
+    });
+
+    const activeCount = formatted.filter((t) => t.status === 'ACTIVE' && t.email).length;
+    const totalWithEmail = formatted.filter((t) => Boolean(t.email)).length;
+
+    return {
+      gyms: formatted,
+      counts: {
+        all: totalWithEmail,
+        active: activeCount,
+        inactive: totalWithEmail - activeCount,
+      },
+    };
+  }
+
+  /**
+   * SUPER ADMIN: Broadcast an Email Campaign to Gym Owners across India
+   */
+  async launchSuperAdminBroadcast(dto: SuperAdminBroadcastDto) {
+    const gymsData = await this.getSuperAdminGymsList();
+    let recipients = gymsData.gyms.filter((g) => Boolean(g.email));
+
+    if (dto.targetAudience === SuperAdminBroadcastAudience.ACTIVE_GYMS) {
+      recipients = recipients.filter((g) => g.status === 'ACTIVE');
+    } else if (dto.targetAudience === SuperAdminBroadcastAudience.INACTIVE_GYMS) {
+      recipients = recipients.filter((g) => g.status !== 'ACTIVE');
+    } else if (dto.targetAudience === SuperAdminBroadcastAudience.SPECIFIC_GYM && dto.specificTenantId) {
+      recipients = recipients.filter((g) => g.id === dto.specificTenantId);
+    }
+
+    if (recipients.length === 0) {
+      throw new NotFoundException('No gym owners found matching the selected audience criteria');
+    }
+
+    const campaign = await this.prisma.emailCampaign.create({
+      data: {
+        tenantId: dto.specificTenantId || null,
+        name: dto.name,
+        subject: dto.subject,
+        templateId: dto.templateId || null,
+        targetSegment: dto.targetAudience,
+        contentHtml: dto.contentHtml,
+        status: 'RUNNING',
+        totalCount: recipients.length,
+      },
+    });
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const gym of recipients) {
+      if (!gym.email) continue;
+
+      let emailHtml = dto.contentHtml;
+      let emailSubject = dto.subject;
+
+      const variables: Record<string, string> = {
+        gym_name: gym.name,
+        business_name: gym.name,
+        owner_name: gym.ownerName || 'Gym Partner',
+        customer_name: gym.ownerName || 'Gym Partner',
+        platform_name: 'Webin10 SaaS',
+        support_email: 'support@webin10.com',
+      };
+
+      for (const [k, v] of Object.entries(variables)) {
+        const re = new RegExp(`{{\\s*${k}\\s*}}`, 'g');
+        emailHtml = emailHtml.replace(re, v);
+        emailSubject = emailSubject.replace(re, v);
+      }
+
+      const res = await this.sendMail(
+        {
+          to: gym.email,
+          subject: emailSubject,
+          html: emailHtml,
+          recipientName: gym.ownerName,
+        },
+        {
+          tenantId: gym.id,
+          campaignId: campaign.id,
+        },
+      );
+
+      if (res.success) {
+        sentCount++;
+      } else {
+        failedCount++;
+      }
+    }
+
+    await this.prisma.emailCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        status: 'COMPLETED',
+        sentCount,
+        failedCount,
+        deliveredCount: sentCount,
+      },
+    });
+
+    return {
+      success: true,
+      campaignId: campaign.id,
+      sentCount,
+      failedCount,
+      totalCount: recipients.length,
+      message: `Broadcast "${dto.name}" dispatched to ${sentCount} gym partners (${failedCount} failed).`,
+    };
+  }
+
+  /**
+   * SUPER ADMIN: Send a direct email to any recipient or gym
+   */
+  async sendSuperAdminDirectEmail(dto: SuperAdminSendDirectEmailDto) {
+    if (dto.templateSlug) {
+      return this.sendTemplatedEmail(
+        dto.recipientEmail,
+        dto.templateSlug,
+        {
+          customer_name: dto.recipientName || 'Partner',
+          platform_name: 'Webin10 SaaS',
+        },
+        {
+          tenantId: dto.tenantId,
+        },
+        dto.recipientName,
+      );
+    }
+
+    return this.sendMail(
+      {
+        to: dto.recipientEmail,
+        subject: dto.subject,
+        html: dto.contentHtml,
+        recipientName: dto.recipientName,
+      },
+      {
+        tenantId: dto.tenantId,
+      },
+    );
+  }
+
+  /**
+   * SUPER ADMIN: Get platform-wide email delivery logs (Paginated)
+   */
+  async getSuperAdminEmailLogs(query: ListEmailLogsDto & { tenantId?: string }) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 25;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.EmailMessageLogWhereInput = {};
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.tenantId) {
+      where.tenantId = query.tenantId;
+    }
+
+    if (query.search) {
+      where.OR = [
+        { recipientEmail: { contains: query.search, mode: 'insensitive' } },
+        { recipientName: { contains: query.search, mode: 'insensitive' } },
+        { subject: { contains: query.search, mode: 'insensitive' } },
+        { messageId: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.emailMessageLog.findMany({
+        where,
+        include: {
+          tenant: { select: { id: true, name: true, slug: true } },
+          campaign: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.emailMessageLog.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * SUPER ADMIN: Get SMTP Configuration (password masked)
+   */
+  async getSuperAdminSmtpConfig() {
+    const config = await this.getMailConfig();
+    return {
+      ...config,
+      password: config.password ? '••••••••••••••••' : '',
+      isConfigured: Boolean(config.password && config.username),
+    };
+  }
+
+  /**
+   * SUPER ADMIN: Save / Update SMTP Configuration
+   */
+  async updateSuperAdminSmtpConfig(dto: UpdateSmtpConfigDto) {
+    const existing = await this.getMailConfig();
+    const passwordToSave = dto.password && !dto.password.includes('•')
+      ? dto.password
+      : existing.password;
+
+    const updatedConfig: SmtpConfig = {
+      provider: dto.provider || existing.provider || 'google',
+      host: dto.host,
+      port: Number(dto.port) || 587,
+      secure: Boolean(dto.secure),
+      username: dto.username,
+      password: passwordToSave,
+      fromEmail: dto.fromEmail,
+      fromName: dto.fromName,
+      replyTo: dto.replyTo || dto.fromEmail,
+    };
+
+    await this.prisma.systemSetting.upsert({
+      where: { key: 'mail_settings' },
+      create: {
+        key: 'mail_settings',
+        group: 'mail',
+        value: updatedConfig as any,
+        isPublic: false,
+      },
+      update: {
+        group: 'mail',
+        value: updatedConfig as any,
+        isPublic: false,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'SMTP settings saved successfully',
+      config: {
+        ...updatedConfig,
+        password: updatedConfig.password ? '••••••••••••••••' : '',
+        isConfigured: Boolean(updatedConfig.password && updatedConfig.username),
+      },
+    };
   }
 }

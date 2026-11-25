@@ -35,7 +35,7 @@ const navigation = [
   { name: 'System Telemetry & Health', href: '/system-telemetry', icon: Activity },
   { name: 'WhatsApp & Messaging', href: '/whatsapp-management', icon: MessageSquare },
   { name: 'Dynamic Config', href: '/configurations', icon: Sliders },
-  { name: 'Email Templates', href: '/email-templates', icon: Mail },
+  { name: 'Email Hub & Broadcasts', href: '/email', icon: Mail },
   { name: 'System Settings', href: '/settings', icon: Settings },
   { name: 'Support Sessions', href: '/support', icon: LifeBuoy },
   { name: 'Platform Team', href: '/admins', icon: Users2 },

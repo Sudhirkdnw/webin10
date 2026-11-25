@@ -2,17 +2,28 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Param,
   Query,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MailService } from './mail.service';
 import { SendDirectEmailDto } from './dto/send-direct-email.dto';
 import { CreateEmailCampaignDto } from './dto/create-email-campaign.dto';
 import { ListEmailLogsDto } from './dto/list-email-logs.dto';
+import {
+  SuperAdminBroadcastDto,
+  SuperAdminSendDirectEmailDto,
+  UpdateSmtpConfigDto,
+} from './dto/super-admin-broadcast.dto';
+import { JwtPlatformGuard } from '@/common/guards/jwt-platform.guard';
+import { PlatformRoleGuard } from '@/common/guards/platform-role.guard';
+import { RequirePlatformRoles } from '@/common/decorators/require-roles.decorator';
+import { PlatformRole } from '@webin10/shared-types';
 
 @ApiTags('Omni-Channel Email Communication & Campaigns')
 @Controller()
@@ -65,10 +76,94 @@ export class MailController {
   }
 
   // -------------------------------------------------------------
-  // SUPER ADMIN SMTP CONTROLS
+  // SUPER ADMIN PLATFORM EMAIL & BROADCAST HUB
   // -------------------------------------------------------------
 
+  @Get('super-admin/email/stats')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(
+    PlatformRole.SUPER_ADMIN,
+    PlatformRole.PLATFORM_OWNER,
+    PlatformRole.PLATFORM_OPERATIONS,
+    PlatformRole.PLATFORM_SUPPORT,
+  )
+  @ApiOperation({ summary: 'Platform-wide email statistics, telemetry, and delivery rate' })
+  async getSuperAdminStats() {
+    return this.mailService.getSuperAdminEmailStats();
+  }
+
+  @Get('super-admin/email/gyms')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(
+    PlatformRole.SUPER_ADMIN,
+    PlatformRole.PLATFORM_OWNER,
+    PlatformRole.PLATFORM_OPERATIONS,
+  )
+  @ApiOperation({ summary: 'List all gym tenants with owner emails for targeted broadcast' })
+  async getGymsList() {
+    return this.mailService.getSuperAdminGymsList();
+  }
+
+  @Post('super-admin/email/broadcast')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Broadcast email campaign blast to gym owners across India' })
+  async broadcastToGyms(@Body() dto: SuperAdminBroadcastDto) {
+    return this.mailService.launchSuperAdminBroadcast(dto);
+  }
+
+  @Post('super-admin/email/send-direct')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER, PlatformRole.PLATFORM_OPERATIONS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '1-Click send direct email from Super Admin to any recipient or gym' })
+  async sendSuperAdminDirect(@Body() dto: SuperAdminSendDirectEmailDto) {
+    return this.mailService.sendSuperAdminDirectEmail(dto);
+  }
+
+  @Get('super-admin/email/logs')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(
+    PlatformRole.SUPER_ADMIN,
+    PlatformRole.PLATFORM_OWNER,
+    PlatformRole.PLATFORM_OPERATIONS,
+    PlatformRole.PLATFORM_SUPPORT,
+  )
+  @ApiOperation({ summary: 'List platform-wide email delivery logs with status and error details' })
+  async getSuperAdminLogs(
+    @Query() query: ListEmailLogsDto & { tenantId?: string },
+  ) {
+    return this.mailService.getSuperAdminEmailLogs(query);
+  }
+
+  @Get('super-admin/email/smtp-config')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
+  @ApiOperation({ summary: 'Get active SMTP configuration (credentials masked)' })
+  async getSmtpConfig() {
+    return this.mailService.getSuperAdminSmtpConfig();
+  }
+
+  @Put('super-admin/email/smtp-config')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
+  @ApiOperation({ summary: 'Update global SMTP mail server configuration' })
+  async updateSmtpConfig(@Body() dto: UpdateSmtpConfigDto) {
+    return this.mailService.updateSuperAdminSmtpConfig(dto);
+  }
+
   @Post('super-admin/email/test-smtp')
+  @ApiBearerAuth()
+  @UseGuards(JwtPlatformGuard, PlatformRoleGuard)
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify and test SMTP credentials with a live test email' })
   async testSmtp(
@@ -78,3 +173,4 @@ export class MailController {
     return this.mailService.verifyAndTestSmtp(config, body.testRecipient);
   }
 }
+
