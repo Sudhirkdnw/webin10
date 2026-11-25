@@ -17,11 +17,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-y-auto">
         <Header />
-        <main className="p-8 flex-1">{children}</main>
+        <main className="p-8 flex-1 bg-slate-50 dark:bg-slate-950 transition-colors duration-200">{children}</main>
       </div>
     </div>
   );

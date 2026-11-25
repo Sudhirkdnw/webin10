@@ -17,12 +17,15 @@ export interface GeneralSettings {
   timezone: string;
 }
 
+export type ColorMode = 'light' | 'dark' | 'system';
+
 export interface ThemeSettings {
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
   logoUrl: string;
   faviconUrl: string;
+  colorMode?: ColorMode;
 }
 
 const DEFAULT_GENERAL: GeneralSettings = {
@@ -45,6 +48,7 @@ const DEFAULT_THEME: ThemeSettings = {
   accentColor: '#F59E0B',
   logoUrl: '',
   faviconUrl: '',
+  colorMode: 'light',
 };
 
 interface PlatformSettingsContextType {
@@ -57,6 +61,10 @@ interface PlatformSettingsContextType {
   currencySymbol: string;
   settings: GeneralSettings;
   theme: ThemeSettings;
+  colorMode: ColorMode;
+  effectiveMode: 'light' | 'dark';
+  setColorMode: (mode: ColorMode) => void;
+  toggleColorMode: () => void;
   updateSettings: (newSettings: Partial<GeneralSettings>) => void;
   updateTheme: (newTheme: Partial<ThemeSettings>) => void;
   refreshSettings: () => Promise<void>;
@@ -73,6 +81,10 @@ const PlatformSettingsContext = createContext<PlatformSettingsContextType>({
   currencySymbol: '₹',
   settings: DEFAULT_GENERAL,
   theme: DEFAULT_THEME,
+  colorMode: 'light',
+  effectiveMode: 'light',
+  setColorMode: () => {},
+  toggleColorMode: () => {},
   updateSettings: () => {},
   updateTheme: () => {},
   refreshSettings: async () => {},
@@ -105,6 +117,70 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
   });
 
   const [isLoading, setIsLoading] = useState(false);
+
+  // Color Mode state (light | dark | system)
+  const [colorMode, setColorModeState] = useState<ColorMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('webin10_color_mode') as ColorMode;
+      if (saved && ['light', 'dark', 'system'].includes(saved)) {
+        return saved;
+      }
+      const cachedTheme = localStorage.getItem('webin10_theme_settings');
+      if (cachedTheme) {
+        try {
+          const parsed = JSON.parse(cachedTheme);
+          if (parsed.colorMode) return parsed.colorMode;
+        } catch {}
+      }
+    }
+    return 'light';
+  });
+
+  const [systemIsDark, setSystemIsDark] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    setSystemIsDark(media.matches);
+
+    const listener = (e: MediaQueryListEvent) => {
+      setSystemIsDark(e.matches);
+    };
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, []);
+
+  const effectiveMode: 'light' | 'dark' =
+    colorMode === 'system' ? (systemIsDark ? 'dark' : 'light') : colorMode;
+
+  // Toggle .dark class on <html> document element
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const root = document.documentElement;
+    if (effectiveMode === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [effectiveMode]);
+
+  const setColorMode = useCallback((mode: ColorMode) => {
+    setColorModeState(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('webin10_color_mode', mode);
+    }
+    setTheme((prev) => {
+      const next = { ...prev, colorMode: mode };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('webin10_theme_settings', JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleColorMode = useCallback(() => {
+    setColorMode(effectiveMode === 'dark' ? 'light' : 'dark');
+  }, [effectiveMode, setColorMode]);
 
   // Apply dynamic CSS variables and Favicon to document root
   useEffect(() => {
@@ -152,6 +228,10 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
             const mergedTheme = { ...DEFAULT_THEME, ...res.data.theme.value };
             setTheme(mergedTheme);
             localStorage.setItem('webin10_theme_settings', JSON.stringify(mergedTheme));
+            if (mergedTheme.colorMode) {
+              setColorModeState(mergedTheme.colorMode);
+              localStorage.setItem('webin10_color_mode', mergedTheme.colorMode);
+            }
           }
           return;
         }
@@ -171,7 +251,12 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
           primaryColor: b.primaryColor || prev.primaryColor,
           secondaryColor: b.secondaryColor || prev.secondaryColor,
           accentColor: b.accentColor || prev.accentColor,
+          colorMode: b.colorMode || prev.colorMode,
         }));
+        if (b.colorMode) {
+          setColorModeState(b.colorMode);
+          localStorage.setItem('webin10_color_mode', b.colorMode);
+        }
       }
     } catch {
       // Fail gracefully
@@ -202,6 +287,12 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
       }
       return next;
     });
+    if (newTheme.colorMode) {
+      setColorModeState(newTheme.colorMode);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('webin10_color_mode', newTheme.colorMode);
+      }
+    }
   }, []);
 
   const currencySymbol = (general.defaultCurrencyFormat || '₹').split(' - ')[0].trim();
@@ -218,6 +309,10 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
         currencySymbol,
         settings: general,
         theme,
+        colorMode,
+        effectiveMode,
+        setColorMode,
+        toggleColorMode,
         updateSettings,
         updateTheme,
         refreshSettings,

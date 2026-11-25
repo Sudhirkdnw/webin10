@@ -51,8 +51,8 @@ export function Sidebar() {
   const brandInitial = appName ? appName.trim().charAt(0).toUpperCase() : 'W';
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800">
-      <div className="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950/40">
+    <aside className="w-64 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 flex flex-col shrink-0 border-r border-slate-200 dark:border-slate-800 transition-colors duration-200">
+      <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
         <div className="flex items-center gap-3 overflow-hidden">
           {logoUrl ? (
             <div className="flex items-center gap-2 max-h-10">
@@ -71,8 +71,8 @@ export function Sidebar() {
                 {brandInitial}
               </div>
               <div className="overflow-hidden">
-                <h1 className="font-bold text-white leading-none truncate max-w-[145px]">{appName || 'Webin10'}</h1>
-                <span className="text-[10px] tracking-wider text-slate-400 font-semibold uppercase">Super Admin</span>
+                <h1 className="font-bold text-slate-900 dark:text-white leading-none truncate max-w-[145px]">{appName || 'Webin10'}</h1>
+                <span className="text-[10px] tracking-wider text-slate-500 dark:text-slate-400 font-semibold uppercase">Super Admin</span>
               </div>
             </>
           )}
@@ -95,8 +95,8 @@ export function Sidebar() {
               }
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
-                  ? 'shadow-sm font-semibold'
-                  : 'hover:bg-slate-800 hover:text-white text-slate-400'
+                  ? 'shadow-xs font-semibold'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -106,9 +106,9 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-800 text-xs text-slate-500">
-        <p>{appName || 'Webin10'} SaaS Platform v1.0</p>
-        <p className="text-[10px] text-slate-600">Production Baseline</p>
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+        <p className="font-medium text-slate-700 dark:text-slate-300">{appName || 'Webin10'} SaaS Platform v1.0</p>
+        <p className="text-[10px] text-slate-400 dark:text-slate-500">Enterprise Control Center</p>
       </div>
     </aside>
   );

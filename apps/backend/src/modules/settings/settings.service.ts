@@ -34,6 +34,7 @@ export const DEFAULT_THEME_SETTINGS = {
   accentColor: '#F59E0B',
   logoUrl: '',
   faviconUrl: '',
+  colorMode: 'light',
 };
 
 @Injectable()
@@ -142,6 +143,7 @@ export class SettingsService {
       primaryColor: themeVal.primaryColor || DEFAULT_THEME_SETTINGS.primaryColor,
       secondaryColor: themeVal.secondaryColor || DEFAULT_THEME_SETTINGS.secondaryColor,
       accentColor: themeVal.accentColor || DEFAULT_THEME_SETTINGS.accentColor,
+      colorMode: themeVal.colorMode || DEFAULT_THEME_SETTINGS.colorMode,
     };
   }
 
