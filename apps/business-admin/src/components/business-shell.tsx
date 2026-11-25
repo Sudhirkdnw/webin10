@@ -21,6 +21,7 @@ import {
   ShieldAlert,
   LogOut,
   Mail,
+  UserCheck,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
 import { AnnouncementBanner } from './announcement-banner';
@@ -50,8 +51,8 @@ export function BusinessShell({ children }: BusinessShellProps) {
       icon: Mail,
       badge: 'New',
     },
-    { name: 'Memberships & Plans', href: '/memberships', icon: CalendarCheck },
-    { name: 'Billing & Invoices', href: '/billing', icon: CreditCard },
+    { name: 'Plan & Billing', href: '/billing', icon: CreditCard },
+    { name: 'Team & Staff', href: '/team', icon: UserCheck },
     { name: 'Business Settings', href: '/settings', icon: Settings },
   ];
 
