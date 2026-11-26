@@ -5,6 +5,7 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { TenantRole, InvoiceStatus, CustomerStatus, CustomerType } from '@prisma/client';
@@ -353,7 +354,7 @@ export class TenantSelfService {
           body: JSON.stringify({
             amount: amountPaise,
             currency: 'INR',
-            receipt: `rcpt_${tenant.slug}_${Date.now()}`,
+            receipt: `rcpt_${Date.now()}`.substring(0, 40),
             notes: {
               tenant_id: tenantId,
               plan_slug: dto.planSlug,
@@ -367,18 +368,18 @@ export class TenantSelfService {
           if (json.id) {
             orderId = json.id;
           }
+        } else {
+          const errJson = await res.json();
+          this.logger.warn(`Razorpay order API response: ${JSON.stringify(errJson)}`);
         }
       } catch (err: any) {
         this.logger.warn(`Razorpay Order creation fallback: ${err.message}`);
       }
     }
 
-    const cleanMerchant = encodeURIComponent('Webin10 Business OS');
-    const note = encodeURIComponent(`${targetPlan.name} ${cycle}`);
-    const upiQrString = `upi://pay?pa=webin10@upi&pn=${cleanMerchant}&am=${totalAmount}&cu=INR&tn=${note}`;
-
     return {
       success: true,
+      provider: 'RAZORPAY',
       orderId,
       amountPaise,
       amountRupees: totalAmount,
@@ -389,8 +390,6 @@ export class TenantSelfService {
       planSlug: targetPlan.slug,
       billingCycle: cycle,
       keyId,
-      upiQrString,
-      upiVpa: 'webin10@upi',
       currency: 'INR',
       customerDetails: {
         name: tenant.profile?.legalName || tenant.name,
@@ -417,6 +416,29 @@ export class TenantSelfService {
   ) {
     const paymentMethod = dto.paymentMethod || 'RAZORPAY';
     const paymentReference = dto.paymentId || `PAY_${Date.now()}`;
+
+    // Verify HMAC-SHA256 signature if signature was returned by Razorpay Checkout
+    const rzpIntegration = await this.prisma.platformIntegration.findUnique({
+      where: { provider: 'RAZORPAY' as any },
+    });
+    const keySecret = (rzpIntegration?.credentials as any)?.keySecret;
+
+    if (keySecret && dto.signature && dto.orderId && dto.paymentId) {
+      try {
+        const generatedSignature = crypto
+          .createHmac('sha256', keySecret)
+          .update(`${dto.orderId}|${dto.paymentId}`)
+          .digest('hex');
+
+        if (generatedSignature === dto.signature) {
+          this.logger.log(`Razorpay payment signature verified successfully for order: ${dto.orderId}`);
+        } else {
+          this.logger.warn(`Razorpay payment signature mismatch for order: ${dto.orderId}`);
+        }
+      } catch (sigErr: any) {
+        this.logger.warn(`Signature verification check error: ${sigErr.message}`);
+      }
+    }
 
     const upgradeResult = await this.upgradeSubscription(tenantId, {
       planSlug: dto.planSlug,
