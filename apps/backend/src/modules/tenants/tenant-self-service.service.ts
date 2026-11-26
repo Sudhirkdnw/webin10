@@ -334,11 +334,21 @@ export class TenantSelfService {
     const totalAmount = Number((priceAfterDiscount + taxAmount).toFixed(2));
     const amountPaise = Math.round(totalAmount * 100);
 
-    const rzpIntegration = await this.prisma.platformIntegration.findUnique({
+    // Fetch active payment gateway configured by Super Admin (Razorpay / Cashfree)
+    const activeGateway = await this.prisma.platformIntegration.findFirst({
+      where: {
+        type: 'PAYMENT_GATEWAY' as any,
+        isEnabled: true,
+      },
+    }) || await this.prisma.platformIntegration.findUnique({
       where: { provider: 'RAZORPAY' as any },
     });
-    const keyId = (rzpIntegration?.credentials as any)?.keyId || 'rzp_test_Webin10Demo';
-    const keySecret = (rzpIntegration?.credentials as any)?.keySecret;
+
+    const isTestMode = activeGateway?.isTestMode ?? true;
+    const creds = (activeGateway?.credentials as any) || {};
+    const keyId = creds.keyId || 'rzp_test_Webin10Demo';
+    const keySecret = creds.keySecret;
+    const provider = activeGateway?.provider || 'RAZORPAY';
 
     let orderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
@@ -359,6 +369,7 @@ export class TenantSelfService {
               tenant_id: tenantId,
               plan_slug: dto.planSlug,
               billing_cycle: cycle,
+              mode: isTestMode ? 'sandbox' : 'production',
             },
           }),
         });
@@ -379,7 +390,7 @@ export class TenantSelfService {
 
     return {
       success: true,
-      provider: 'RAZORPAY',
+      provider,
       orderId,
       amountPaise,
       amountRupees: totalAmount,
@@ -391,11 +402,11 @@ export class TenantSelfService {
       billingCycle: cycle,
       keyId,
       currency: 'INR',
-      isTestMode: keyId.startsWith('rzp_test_') || Boolean(rzpIntegration?.isTestMode),
+      isTestMode,
       customerDetails: {
         name: tenant.profile?.legalName || tenant.name,
         email: tenant.profile?.email || 'admin@' + tenant.slug + '.in',
-        phone: tenant.profile?.phone || '9876543210',
+        phone: tenant.profile?.phone || '9876543202',
       },
     };
   }
@@ -419,10 +430,15 @@ export class TenantSelfService {
     const paymentReference = dto.paymentId || `PAY_${Date.now()}`;
 
     // Verify HMAC-SHA256 signature if signature was returned by Razorpay Checkout
-    const rzpIntegration = await this.prisma.platformIntegration.findUnique({
+    const activeGateway = await this.prisma.platformIntegration.findFirst({
+      where: {
+        type: 'PAYMENT_GATEWAY' as any,
+        isEnabled: true,
+      },
+    }) || await this.prisma.platformIntegration.findUnique({
       where: { provider: 'RAZORPAY' as any },
     });
-    const keySecret = (rzpIntegration?.credentials as any)?.keySecret;
+    const keySecret = (activeGateway?.credentials as any)?.keySecret;
 
     if (keySecret && dto.signature && dto.orderId && dto.paymentId) {
       try {
@@ -434,10 +450,14 @@ export class TenantSelfService {
         if (generatedSignature === dto.signature) {
           this.logger.log(`Razorpay payment signature verified successfully for order: ${dto.orderId}`);
         } else {
-          this.logger.warn(`Razorpay payment signature mismatch for order: ${dto.orderId}`);
+          this.logger.error(`Razorpay signature mismatch for order ${dto.orderId}`);
+          throw new BadRequestException('Payment signature verification failed. Untrusted transaction.');
         }
       } catch (sigErr: any) {
         this.logger.warn(`Signature verification check error: ${sigErr.message}`);
+        if (sigErr instanceof BadRequestException) {
+          throw sigErr;
+        }
       }
     }
 

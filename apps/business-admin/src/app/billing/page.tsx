@@ -799,23 +799,6 @@ export default function BillingPage() {
                       </span>
                     </div>
 
-                    {/* Sandbox / Test Mode Guide */}
-                    <div className="p-3.5 bg-amber-50/90 border border-amber-300 rounded-xl text-xs text-amber-950 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold flex items-center gap-1.5 text-amber-900">
-                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                          Razorpay Test Mode (Sandbox Guide)
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-bold text-[10px]">
-                          Sandbox
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-amber-900 leading-relaxed">
-                        • <strong>UPI Testing:</strong> Razorpay popup me UPI select karke VPA me <code className="bg-white px-1.5 py-0.5 rounded border border-amber-300 font-mono font-bold text-amber-900">success@razorpay</code> dalein. Real PhonePe/GPay app se scan tabhi kaam karega jab Super Admin Live Keys (<code>rzp_live_...</code>) dalein.<br />
-                        • <strong>Card Testing:</strong> Domestic Indian test card <code className="bg-white px-1.5 py-0.5 rounded border border-amber-300 font-mono font-bold text-amber-900">4012 0000 0000 0002</code> use karein (Expiry: 12/28, CVV: 123, OTP: 123456). International cards test mode me Razorpay support nahi karta.
-                      </p>
-                    </div>
-
                     <button
                       onClick={handleInitiateCheckout}
                       disabled={checkoutLoading}
