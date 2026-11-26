@@ -36,6 +36,35 @@ export class TenantSelfServiceController {
     return this.selfService.upgradeSubscription(tenantId, dto);
   }
 
+  @Post('subscription/create-order')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Create Razorpay / UPI order for plan subscription checkout' })
+  async createSubscriptionOrder(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: { planSlug: string; couponCode?: string; billingCycle?: 'MONTHLY' | 'ANNUAL' },
+  ) {
+    return this.selfService.createSubscriptionOrder(tenantId, dto);
+  }
+
+  @Post('subscription/verify-payment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify gateway payment and activate subscription plan' })
+  async verifySubscriptionPayment(
+    @Param('tenantId') tenantId: string,
+    @Body()
+    dto: {
+      orderId: string;
+      paymentId: string;
+      signature?: string;
+      planSlug: string;
+      billingCycle?: 'MONTHLY' | 'ANNUAL';
+      couponCode?: string;
+      paymentMethod?: string;
+    },
+  ) {
+    return this.selfService.verifySubscriptionPayment(tenantId, dto);
+  }
+
   @Get('invoices')
   @ApiOperation({ summary: 'List all generated GST tax invoices for tenant' })
   async getInvoices(@Param('tenantId') tenantId: string) {

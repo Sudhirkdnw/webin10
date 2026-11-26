@@ -673,4 +673,30 @@ export class BillingService {
       results,
     };
   }
+
+  /**
+   * 8. Public Gateway Configuration (Public Key only, no secrets!)
+   */
+  async getGatewayPublicConfig() {
+    const rzpIntegration = await this.prisma.platformIntegration.findUnique({
+      where: { provider: 'RAZORPAY' as any },
+    });
+
+    const isEnabled = rzpIntegration?.isEnabled ?? true;
+    const isTestMode = rzpIntegration?.isTestMode ?? true;
+    const rzpCreds = (rzpIntegration?.credentials as any) || {};
+
+    const keyId = rzpCreds.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_Webin10Demo';
+
+    return {
+      success: true,
+      provider: 'RAZORPAY',
+      isEnabled,
+      isTestMode,
+      keyId,
+      currency: 'INR',
+      upiVpa: 'webin10@upi',
+      merchantName: 'Webin10 Multi-Tenant Business OS',
+    };
+  }
 }

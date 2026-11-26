@@ -148,4 +148,10 @@ export class BillingController {
     const signature = razorpaySig || cashfreeSig || cfSig || stripeSig;
     return this.billingService.handlePaymentWebhook(provider, payload, signature);
   }
+
+  @Get('billing/gateway-config')
+  @ApiOperation({ summary: 'Get public payment gateway credentials for checkout' })
+  async getGatewayConfig() {
+    return this.billingService.getGatewayPublicConfig();
+  }
 }
