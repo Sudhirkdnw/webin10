@@ -72,9 +72,11 @@ export class PlansService {
         slug,
         description: dto.description,
         priceMonthly: dto.priceMonthly,
+        priceAnnual: dto.priceAnnual,
         maxCustomers: dto.maxCustomers,
         maxStaff: dto.maxStaff,
         maxBranches: dto.maxBranches,
+        customQuotas: dto.customQuotas || [],
         isActive: true,
       },
     });
@@ -104,9 +106,11 @@ export class PlansService {
         name: dto.name,
         description: dto.description,
         priceMonthly: dto.priceMonthly,
+        priceAnnual: dto.priceAnnual !== undefined ? dto.priceAnnual : undefined,
         maxCustomers: dto.maxCustomers,
         maxStaff: dto.maxStaff,
         maxBranches: dto.maxBranches,
+        customQuotas: dto.customQuotas !== undefined ? dto.customQuotas : undefined,
         isActive: dto.isActive,
       },
     });

@@ -24,6 +24,16 @@ export class CreateSubscriptionPlanDto {
   @Min(0)
   priceMonthly!: number;
 
+  @ApiProperty({ example: 4999000, description: 'Annual price in INR paise (e.g. ₹49,990 = 4999000 paise)', required: false })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priceAnnual?: number;
+
+  @ApiProperty({ example: [{ name: 'WhatsApp Marketing', value: '5,000 / mo' }], description: 'Custom dynamic quotas and perks', required: false })
+  @IsOptional()
+  customQuotas?: any;
+
   @ApiProperty({ example: 5000, description: 'Maximum active customer records permitted' })
   @IsInt()
   @Min(1)

@@ -296,9 +296,11 @@ model SubscriptionPlan {
   slug         String   @unique
   description  String?
   priceMonthly Int      @map("price_monthly") // in INR paise or rupees
+  priceAnnual  Int?     @map("price_annual")  // in INR paise or rupees
   maxCustomers Int      @default(100) @map("max_customers")
   maxStaff     Int      @default(2) @map("max_staff")
   maxBranches  Int      @default(1) @map("max_branches")
+  customQuotas Json?    @map("custom_quotas") // Dynamic custom quotas & features e.g. [{"name": "Support", "value": "24x7 Dedicated"}]
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
 

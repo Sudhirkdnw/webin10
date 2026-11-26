@@ -66,6 +66,7 @@ interface SubscriptionData {
     maxCustomers: number;
     maxStaff: number;
     maxBranches: number;
+    customQuotas?: Array<{ name: string; value: string }>;
     isCurrent: boolean;
   }[];
 }
@@ -645,6 +646,16 @@ export default function BillingPage() {
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                             <span>Instant GST Tax Invoices</span>
                           </div>
+                          {/* Dynamic Custom Quotas from Super Admin */}
+                          {Array.isArray((plan as any).customQuotas) &&
+                            (plan as any).customQuotas.map((cq: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>
+                                  <strong>{cq.name}:</strong> {cq.value}
+                                </span>
+                              </div>
+                            ))}
                         </div>
                       </div>
 

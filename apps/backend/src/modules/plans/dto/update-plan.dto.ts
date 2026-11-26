@@ -19,6 +19,16 @@ export class UpdateSubscriptionPlanDto {
   @Min(0)
   priceMonthly?: number;
 
+  @ApiProperty({ required: false, example: 1499000 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priceAnnual?: number;
+
+  @ApiProperty({ required: false, example: [{ name: 'Priority Support', value: '24x7 SLA' }] })
+  @IsOptional()
+  customQuotas?: any;
+
   @ApiProperty({ required: false, example: 1000 })
   @IsOptional()
   @IsInt()

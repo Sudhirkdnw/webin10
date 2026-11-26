@@ -102,10 +102,11 @@ export class TenantSelfService {
         slug: p.slug,
         description: p.description,
         priceMonthly: p.priceMonthly / 100,
-        priceAnnual: Math.round((p.priceMonthly / 100) * 10), // 2 months free annual discount
+        priceAnnual: p.priceAnnual ? p.priceAnnual / 100 : Math.round((p.priceMonthly / 100) * 10), // 2 months free annual discount fallback
         maxCustomers: p.maxCustomers,
         maxStaff: p.maxStaff,
         maxBranches: p.maxBranches,
+        customQuotas: (p.customQuotas as any) || [],
         isCurrent: plan?.slug === p.slug,
       })),
     };
@@ -147,7 +148,7 @@ export class TenantSelfService {
     let periodDays = 30;
 
     if (cycle === 'ANNUAL') {
-      basePrice = Math.round(basePrice * 10); // 2 months free
+      basePrice = targetPlan.priceAnnual ? targetPlan.priceAnnual / 100 : Math.round(basePrice * 10); // fallback 2 months free
       periodDays = 365;
     }
 
@@ -288,7 +289,7 @@ export class TenantSelfService {
     const cycle = dto.billingCycle || 'MONTHLY';
     let basePrice = targetPlan.priceMonthly / 100;
     if (cycle === 'ANNUAL') {
-      basePrice = Math.round(basePrice * 10);
+      basePrice = targetPlan.priceAnnual ? targetPlan.priceAnnual / 100 : Math.round(basePrice * 10);
     }
 
     let discountAmount = 0;
