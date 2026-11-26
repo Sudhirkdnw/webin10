@@ -61,6 +61,12 @@ export class TenantSelfService {
       daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
     }
 
+    const currentPlanQuotas = Array.isArray(plan?.customQuotas)
+      ? (plan?.customQuotas as any[])
+      : typeof plan?.customQuotas === 'object' && plan?.customQuotas !== null
+      ? Object.entries(plan?.customQuotas).map(([name, value]) => ({ name, value: String(value) }))
+      : [];
+
     return {
       tenant: {
         id: tenant.id,
@@ -78,37 +84,45 @@ export class TenantSelfService {
             currentPeriodEnd: currentSub.currentPeriodEnd,
             daysRemaining,
             priceMonthly: plan ? plan.priceMonthly / 100 : 0,
-            features: [
-              `Up to ${plan?.maxCustomers?.toLocaleString() || 500} Active Customers`,
-              `Up to ${plan?.maxStaff || 3} Team Members`,
-              `Up to ${plan?.maxBranches || 1} Business Branch`,
-              'Automated WhatsApp & Email Hub Access',
-              'GST Invoices & Instant Receipts',
-              'Enterprise SSL & Cloud Backup',
-            ],
+            features: plan
+              ? [
+                  `Up to ${plan.maxCustomers.toLocaleString()} Active Customers`,
+                  `Up to ${plan.maxStaff} Team Members`,
+                  `Up to ${plan.maxBranches} Business Branch${plan.maxBranches > 1 ? 'es' : ''}`,
+                  ...currentPlanQuotas.map((cq) => `${cq.name}: ${cq.value}`),
+                ]
+              : [],
           }
         : null,
       usage: {
         customersCount: tenant._count.customers,
-        maxCustomers: plan?.maxCustomers || 500,
+        maxCustomers: plan?.maxCustomers || 100,
         staffCount: tenant._count.members,
-        maxStaff: plan?.maxStaff || 3,
+        maxStaff: plan?.maxStaff || 2,
         branchesCount: tenant._count.branches,
         maxBranches: plan?.maxBranches || 1,
       },
-      availablePlans: allPlans.map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        description: p.description,
-        priceMonthly: p.priceMonthly / 100,
-        priceAnnual: p.priceAnnual ? p.priceAnnual / 100 : Math.round((p.priceMonthly / 100) * 10), // 2 months free annual discount fallback
-        maxCustomers: p.maxCustomers,
-        maxStaff: p.maxStaff,
-        maxBranches: p.maxBranches,
-        customQuotas: (p.customQuotas as any) || [],
-        isCurrent: plan?.slug === p.slug,
-      })),
+      availablePlans: allPlans.map((p) => {
+        const pCustomQuotas = Array.isArray(p.customQuotas)
+          ? (p.customQuotas as any[])
+          : typeof p.customQuotas === 'object' && p.customQuotas !== null
+          ? Object.entries(p.customQuotas).map(([name, value]) => ({ name, value: String(value) }))
+          : [];
+
+        return {
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          description: p.description,
+          priceMonthly: p.priceMonthly / 100,
+          priceAnnual: p.priceAnnual ? p.priceAnnual / 100 : Math.round((p.priceMonthly / 100) * 10),
+          maxCustomers: p.maxCustomers,
+          maxStaff: p.maxStaff,
+          maxBranches: p.maxBranches,
+          customQuotas: pCustomQuotas,
+          isCurrent: plan?.slug === p.slug,
+        };
+      }),
     };
   }
 

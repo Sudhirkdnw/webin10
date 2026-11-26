@@ -140,6 +140,14 @@ export default function BillingPage() {
       const subJson = await subRes.json();
       if (subJson.success && subJson.data) {
         setData(subJson.data);
+        if (subJson.data.availablePlans?.length > 0) {
+          const current = subJson.data.availablePlans.find((p: any) => p.isCurrent);
+          if (current) {
+            setSelectedPlanSlug(current.slug);
+          } else if (!subJson.data.availablePlans.some((p: any) => p.slug === selectedPlanSlug)) {
+            setSelectedPlanSlug(subJson.data.availablePlans[0].slug);
+          }
+        }
       }
 
       const invJson = await invRes.json();
@@ -530,150 +538,120 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {/* Plans Grid */}
+              {/* Plans Grid - 100% Dynamic from Super Admin Database */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {(data?.availablePlans || [
-                  {
-                    id: '1',
-                    slug: 'starter',
-                    name: 'Starter Tier',
-                    description: 'Ideal for single-location businesses, fitness studios, salons, clinics, and retail stores.',
-                    priceMonthly: 499,
-                    priceAnnual: 4990,
-                    maxCustomers: 500,
-                    maxStaff: 3,
-                    maxBranches: 1,
-                    isCurrent: false,
-                  },
-                  {
-                    id: '2',
-                    slug: 'growth',
-                    name: 'Growth Tier',
-                    description: 'Scale your business with multi-staff roles and high-volume WhatsApp automation.',
-                    priceMonthly: 999,
-                    priceAnnual: 9990,
-                    maxCustomers: 2000,
-                    maxStaff: 8,
-                    maxBranches: 2,
-                    isCurrent: true,
-                  },
-                  {
-                    id: '3',
-                    slug: 'enterprise',
-                    name: 'Professional Tier',
-                    description: 'Unlimited possibilities for multi-branch business chains, academies, and franchises.',
-                    priceMonthly: 1999,
-                    priceAnnual: 19990,
-                    maxCustomers: 10000,
-                    maxStaff: 25,
-                    maxBranches: 5,
-                    isCurrent: false,
-                  },
-                ]).map((plan) => {
-                  const isSelected = selectedPlanSlug === plan.slug;
-                  const price = billingCycle === 'ANNUAL' ? plan.priceAnnual : plan.priceMonthly;
+                {loading ? (
+                  <div className="col-span-3 py-16 text-center text-slate-400 text-sm">
+                    Loading subscription plans...
+                  </div>
+                ) : !data?.availablePlans || data.availablePlans.length === 0 ? (
+                  <div className="col-span-3 py-16 text-center text-slate-400 text-sm">
+                    No active subscription plans configured by platform admin.
+                  </div>
+                ) : (
+                  data.availablePlans.map((plan) => {
+                    const isSelected = selectedPlanSlug === plan.slug;
+                    const price = billingCycle === 'ANNUAL' ? plan.priceAnnual : plan.priceMonthly;
 
-                  return (
-                    <div
-                      key={plan.slug}
-                      onClick={() => setSelectedPlanSlug(plan.slug)}
-                      className={`relative rounded-3xl p-6 transition-all cursor-pointer border-2 flex flex-col justify-between ${
-                        isSelected
-                          ? 'border-emerald-600 bg-emerald-50/30 shadow-md ring-4 ring-emerald-100'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      {plan.slug === 'growth' && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[11px] font-extrabold uppercase rounded-full shadow-sm tracking-wide">
-                          Most Popular
-                        </span>
-                      )}
+                    return (
+                      <div
+                        key={plan.slug}
+                        onClick={() => setSelectedPlanSlug(plan.slug)}
+                        className={`relative rounded-3xl p-6 transition-all cursor-pointer border-2 flex flex-col justify-between ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50/30 shadow-md ring-4 ring-emerald-100'
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                        }`}
+                      >
+                        {plan.isCurrent && (
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-emerald-600 text-white text-[11px] font-extrabold uppercase rounded-full shadow-sm tracking-wide">
+                            Current Active Plan
+                          </span>
+                        )}
 
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-extrabold text-lg text-slate-900">{plan.name}</h4>
-                          <input
-                            type="radio"
-                            name="planSelect"
-                            checked={isSelected}
-                            onChange={() => setSelectedPlanSlug(plan.slug)}
-                            className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
-                          />
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-extrabold text-lg text-slate-900">{plan.name}</h4>
+                            <input
+                              type="radio"
+                              name="planSelect"
+                              checked={isSelected}
+                              onChange={() => setSelectedPlanSlug(plan.slug)}
+                              className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            />
+                          </div>
+                          <p className="text-xs text-slate-500 min-h-[32px]">{plan.description || ''}</p>
+
+                          <div className="my-5">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-3xl font-black text-slate-900">
+                                ₹{price.toLocaleString('en-IN')}
+                              </span>
+                              <span className="text-xs text-slate-500 font-semibold">
+                                /{billingCycle === 'ANNUAL' ? 'year' : 'month'} + GST
+                              </span>
+                            </div>
+                            {billingCycle === 'ANNUAL' ? (
+                              <p className="text-[11px] text-emerald-600 font-bold mt-0.5">
+                                Effective ₹{Math.round(price / 12).toLocaleString('en-IN')}/mo (Billed Annually)
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                Annual plan: ₹{plan.priceAnnual.toLocaleString('en-IN')}/yr
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Features list - 100% Dynamic from Super Admin */}
+                          <div className="space-y-2.5 pt-4 border-t border-slate-100 text-xs text-slate-700">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>
+                                Up to <strong>{plan.maxCustomers.toLocaleString()}</strong> Active Customers
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>
+                                Up to <strong>{plan.maxStaff}</strong> Team Staff Members
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>
+                                Up to <strong>{plan.maxBranches}</strong> Business Branch{plan.maxBranches > 1 ? 'es' : ''}
+                              </span>
+                            </div>
+
+                            {/* Dynamic Custom Quotas from Super Admin */}
+                            {Array.isArray(plan.customQuotas) &&
+                              plan.customQuotas.map((cq, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <span>
+                                    <strong className="text-slate-900">{cq.name}:</strong> {cq.value}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
                         </div>
-                        <p className="text-xs text-slate-500 min-h-[32px]">{plan.description}</p>
 
-                        <div className="my-5">
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-3xl font-black text-slate-900">
-                              ₹{price.toLocaleString('en-IN')}
-                            </span>
-                            <span className="text-xs text-slate-500 font-semibold">
-                              /{billingCycle === 'ANNUAL' ? 'year' : 'month'} + GST
-                            </span>
-                          </div>
-                          {billingCycle === 'ANNUAL' && (
-                            <p className="text-[11px] text-emerald-600 font-bold mt-0.5">
-                              Effective ₹{Math.round(price / 12).toLocaleString('en-IN')}/mo (Saved 2 Months!)
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Features list */}
-                        <div className="space-y-2.5 pt-4 border-t border-slate-100 text-xs text-slate-700">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>
-                              Up to <strong>{plan.maxCustomers.toLocaleString()}</strong> Active Customers
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>
-                              Up to <strong>{plan.maxStaff}</strong> Team Staff Members
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>
-                              Up to <strong>{plan.maxBranches}</strong> Business Branches
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Automated WhatsApp Reminders</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Instant GST Tax Invoices</span>
-                          </div>
-                          {/* Dynamic Custom Quotas from Super Admin */}
-                          {Array.isArray((plan as any).customQuotas) &&
-                            (plan as any).customQuotas.map((cq: any, idx: number) => (
-                              <div key={idx} className="flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                                <span>
-                                  <strong>{cq.name}:</strong> {cq.value}
-                                </span>
-                              </div>
-                            ))}
+                        <div className="mt-6 pt-4">
+                          <button
+                            type="button"
+                            className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {plan.isCurrent ? 'Current Tier (Renew)' : isSelected ? 'Selected Plan' : 'Select Tier'}
+                          </button>
                         </div>
                       </div>
-
-                      <div className="mt-6 pt-4">
-                        <button
-                          type="button"
-                          className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all ${
-                            isSelected
-                              ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}
-                        >
-                          {isSelected ? 'Selected Plan' : 'Select Tier'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
 
               {/* Checkout / Coupon Calculation Box */}
