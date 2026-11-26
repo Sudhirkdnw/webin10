@@ -36,6 +36,7 @@ export class BillingService {
         where: {
           status: { in: ['ACTIVE', 'TRIAL'] },
         },
+        orderBy: { createdAt: 'desc' },
         include: {
           plan: true,
           tenant: { select: { id: true, name: true, status: true } },
@@ -57,13 +58,23 @@ export class BillingService {
     let activeSubscribersCount = 0;
     let expiringIn7DaysCount = 0;
 
+    // Deduplicate: Track latest current subscription per unique tenant
+    const seenTenants = new Set<string>();
+
     for (const sub of subscriptions) {
+      if (!sub.tenantId || seenTenants.has(sub.tenantId)) {
+        continue;
+      }
+      seenTenants.add(sub.tenantId);
+
       if (sub.tenant?.status === 'ACTIVE') {
         activeSubscribersCount++;
-        // If priceMonthly is in paise (e.g. 299900) or rupees (e.g. 2999)
-        const price = sub.plan ? (sub.plan.priceMonthly > 50000 ? sub.plan.priceMonthly / 100 : sub.plan.priceMonthly) : 0;
-        mrrInr += price;
+        // Database stores priceMonthly in paise (e.g. 49900 paise = 499 INR, 99900 = 999 INR)
+        const priceInPaise = sub.plan?.priceMonthly || 0;
+        const priceInRupees = priceInPaise >= 1000 ? Math.round(priceInPaise / 100) : priceInPaise;
+        mrrInr += priceInRupees;
       }
+
       if (sub.currentPeriodEnd >= now && sub.currentPeriodEnd <= in7Days) {
         expiringIn7DaysCount++;
       }

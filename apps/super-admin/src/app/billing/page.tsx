@@ -716,7 +716,7 @@ export default function BillingRevenueHubPage() {
             <div className="mt-3">
               <p className="text-2xl font-black text-slate-900">
                 {metrics.activeSubscribersCount}{' '}
-                <span className="text-sm font-medium text-slate-400">/ {metrics.totalTenants} gyms</span>
+                <span className="text-sm font-medium text-slate-400">/ {metrics.totalTenants} businesses</span>
               </p>
               <p className="text-xs text-sky-700 font-semibold mt-2">
                 ARPU: ₹{metrics.arpu.toLocaleString('en-IN')} / business
@@ -837,7 +837,7 @@ export default function BillingRevenueHubPage() {
                       <td colSpan={6} className="px-5 py-10 text-center text-slate-400">
                         <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
                         <p className="font-semibold text-slate-700">No subscriptions expiring in the next 7 days.</p>
-                        <p className="text-xs text-slate-400 mt-1">All gym plans are active and well within their validity.</p>
+                        <p className="text-xs text-slate-400 mt-1">All business plans are active and well within their validity.</p>
                       </td>
                     </tr>
                   ) : (
@@ -928,7 +928,7 @@ export default function BillingRevenueHubPage() {
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search invoice number, gym name, or phone..."
+                  placeholder="Search invoice number, business name, or phone..."
                   value={invoiceSearch}
                   onChange={(e) => setInvoiceSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
