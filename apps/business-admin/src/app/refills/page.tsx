@@ -16,11 +16,37 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useActiveTenant } from '@/lib/tenant';
+import { getApiBaseUrl } from '@/lib/api';
 
 export default function MedicineRefillPage() {
-  const { tenantName } = useActiveTenant();
+  const API_BASE = getApiBaseUrl();
+  const { tenantId, tenantName } = useActiveTenant();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const handleSendReminder = async (r: any) => {
+    if (!tenantId) return;
+    try {
+      const res = await fetch(`${API_BASE}/tenants/${tenantId}/refills/reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientName: r.patientName,
+          phone: r.phone,
+          medicines: r.medicines,
+          dosageDays: r.dosageDays,
+          nextDueDate: r.nextDueDate,
+          totalCost: r.totalCost,
+        }),
+      });
+      const json = await res.json();
+      if (json.success || json.data?.success) {
+        alert(`WhatsApp prescription refill reminder sent to ${r.patientName}!`);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to dispatch WhatsApp refill reminder');
+    }
+  };
 
   const [refills, setRefills] = useState([
     {
@@ -193,7 +219,7 @@ export default function MedicineRefillPage() {
                     <div className="text-[11px] text-slate-400">{r.phone}</div>
                   </div>
                   <button
-                    onClick={() => alert(`WhatsApp Refill Reminder queued for ${r.patientName}!`)}
+                    onClick={() => handleSendReminder(r)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200 transition-colors cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />

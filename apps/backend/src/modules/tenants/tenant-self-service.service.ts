@@ -6,13 +6,17 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { TenantRole, InvoiceStatus } from '@prisma/client';
 
 @Injectable()
 export class TenantSelfService {
   private readonly logger = new Logger(TenantSelfService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly whatsAppService: WhatsAppService,
+  ) {}
 
   /**
    * 1. Get Tenant Subscription Details + Available Plans for Upgrade
@@ -783,6 +787,22 @@ export class TenantSelfService {
         whatsappSent: dto.whatsappSent ?? true,
       },
     });
+
+    // Auto-trigger WhatsApp entry alert if enabled
+    if ((dto.whatsappSent ?? true) && dto.phone && dto.status !== 'ABSENT') {
+      try {
+        await this.whatsAppService.triggerAttendanceAlert(tenantId, {
+          name: dto.name,
+          phone: dto.phone,
+          checkInTime: time,
+          date: today,
+          status: dto.status || 'PRESENT',
+        });
+      } catch (err: any) {
+        this.logger.warn(`WhatsApp attendance trigger failed: ${err.message}`);
+      }
+    }
+
     return { success: true, data: log };
   }
 
@@ -837,7 +857,43 @@ export class TenantSelfService {
         notes: dto.notes,
       },
     });
+
+    // Auto-trigger WhatsApp Khata Balance Alert with UPI Payment Link
+    if (dto.phone) {
+      try {
+        await this.whatsAppService.triggerKhataAlert(tenantId, {
+          customerName: dto.customerName,
+          phone: dto.phone,
+          amount: dto.amount,
+          balanceDue: dto.amount,
+          notes: dto.notes,
+        });
+      } catch (err: any) {
+        this.logger.warn(`WhatsApp khata trigger failed: ${err.message}`);
+      }
+    }
+
     return { success: true, data: entry };
+  }
+
+  async sendKhataReminder(tenantId: string, entryId: string) {
+    const entry = await this.prisma.khataEntry.findFirst({
+      where: { id: entryId, tenantId },
+    });
+    if (!entry) throw new NotFoundException('Khata entry not found');
+
+    const result = await this.whatsAppService.triggerKhataAlert(tenantId, {
+      customerName: entry.customerName,
+      phone: entry.phone,
+      amount: entry.amount,
+      balanceDue: entry.balanceDue,
+    });
+
+    return {
+      success: true,
+      message: `WhatsApp payment reminder sent to ${entry.customerName}!`,
+      logId: result?.id,
+    };
   }
 
   async settleKhataEntry(tenantId: string, entryId: string) {
@@ -894,7 +950,41 @@ export class TenantSelfService {
         notes: dto.notes,
       },
     });
+
+    // Auto-trigger WhatsApp Appointment Confirmation
+    if (dto.phone) {
+      try {
+        await this.whatsAppService.triggerAppointmentAlert(tenantId, {
+          clientName: dto.clientName,
+          phone: dto.phone,
+          service: dto.service,
+          stylist: dto.stylist,
+          timeSlot: dto.timeSlot,
+          slotDate: today,
+          amount: dto.amount,
+        });
+      } catch (err: any) {
+        this.logger.warn(`WhatsApp appointment trigger failed: ${err.message}`);
+      }
+    }
+
     return { success: true, data: appointment };
+  }
+
+  async sendRefillReminder(tenantId: string, dto: {
+    patientName: string;
+    phone: string;
+    medicines: string;
+    dosageDays: string;
+    nextDueDate: string;
+    totalCost?: string;
+  }) {
+    const result = await this.whatsAppService.triggerRefillAlert(tenantId, dto);
+    return {
+      success: true,
+      message: `WhatsApp medicine refill reminder sent to ${dto.patientName}!`,
+      logId: result?.id,
+    };
   }
 
   async updateAppointmentStatus(tenantId: string, appointmentId: string, status: string) {

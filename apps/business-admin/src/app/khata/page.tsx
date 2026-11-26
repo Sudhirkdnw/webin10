@@ -84,6 +84,21 @@ export default function KhataPage() {
     }
   };
 
+  const handleSendReminder = async (id: string, name: string) => {
+    if (!tenantId) return;
+    try {
+      const res = await fetch(`${API_BASE}/tenants/${tenantId}/khata/${id}/reminder`, {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (json.success || json.data?.success) {
+        alert(`WhatsApp payment link & balance reminder dispatched to ${name}!`);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to dispatch WhatsApp reminder');
+    }
+  };
+
   const handleSettle = async (id: string) => {
     if (!tenantId) return;
     try {
@@ -196,7 +211,7 @@ export default function KhataPage() {
                   {e.balanceDue > 0 ? (
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => alert(`WhatsApp payment reminder sent to ${e.customerName} with UPI Pay Link!`)}
+                        onClick={() => handleSendReminder(e.id, e.customerName)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
                       >
                         <Send className="w-3.5 h-3.5" />

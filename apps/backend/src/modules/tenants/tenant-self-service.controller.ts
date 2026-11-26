@@ -196,6 +196,33 @@ export class TenantSelfServiceController {
     return this.selfService.settleKhataEntry(tenantId, id);
   }
 
+  @Post('khata/:id/reminder')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Dispatch automated WhatsApp payment link reminder for khata entry' })
+  async sendKhataReminder(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.selfService.sendKhataReminder(tenantId, id);
+  }
+
+  @Post('refills/reminder')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Dispatch automated WhatsApp prescription refill reminder' })
+  async sendRefillReminder(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: {
+      patientName: string;
+      phone: string;
+      medicines: string;
+      dosageDays: string;
+      nextDueDate: string;
+      totalCost?: string;
+    },
+  ) {
+    return this.selfService.sendRefillReminder(tenantId, dto);
+  }
+
   // ==========================================
   // MODULE PERSISTENCE: APPOINTMENTS
   // ==========================================
