@@ -391,6 +391,7 @@ export class TenantSelfService {
       billingCycle: cycle,
       keyId,
       currency: 'INR',
+      isTestMode: keyId.startsWith('rzp_test_') || Boolean(rzpIntegration?.isTestMode),
       customerDetails: {
         name: tenant.profile?.legalName || tenant.name,
         email: tenant.profile?.email || 'admin@' + tenant.slug + '.in',
