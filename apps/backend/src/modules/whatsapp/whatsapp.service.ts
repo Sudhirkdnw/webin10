@@ -260,6 +260,46 @@ export class WhatsAppService {
    * 6. Create Customer & trigger auto-welcome if configured
    */
   async createCustomer(tenantId: string, data: any) {
+    const totalFee = data.totalFee !== undefined ? Number(data.totalFee) : (data.metadata?.totalFee ? Number(data.metadata.totalFee) : 0);
+    const feePaid = data.feePaid !== undefined ? Number(data.feePaid) : (data.metadata?.feePaid ? Number(data.metadata.feePaid) : 0);
+    const pendingAmount = data.pendingAmount !== undefined ? Number(data.pendingAmount) : (totalFee > 0 ? Math.max(0, totalFee - feePaid) : 0);
+
+    const metadata = {
+      ...(data.metadata || {}),
+      batchName: data.batchName || data.membershipPlan || data.metadata?.batchName || '',
+      batchTiming: data.batchTiming || data.metadata?.batchTiming || '',
+      rollNo: data.rollNo || data.metadata?.rollNo || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
+      parentName: data.parentName || data.metadata?.parentName || '',
+      parentPhone: data.parentPhone || data.metadata?.parentPhone || '',
+      totalFee,
+      feePaid,
+      feeInstallments: data.metadata?.feeInstallments || (feePaid > 0 ? [{
+        id: `pay-${Date.now()}`,
+        amount: feePaid,
+        date: new Date().toISOString(),
+        mode: data.paymentMode || 'CASH',
+        receiptNo: `REC-${Date.now().toString().slice(-6)}`,
+        note: 'Admission / Initial Payment'
+      }] : []),
+    };
+
+    let customerType: any = 'GENERAL';
+    if (data.customerType === 'COACHING_STUDENT' || data.customerType === 'STUDENT') {
+      customerType = 'COACHING_STUDENT';
+    } else if (data.customerType === 'GYM_MEMBER') {
+      customerType = 'GYM_MEMBER';
+    } else {
+      const t = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { category: { select: { slug: true } } },
+      });
+      if (t?.category?.slug === 'coaching' || t?.category?.slug === 'dance-academy') {
+        customerType = 'COACHING_STUDENT';
+      } else if (t?.category?.slug === 'gym') {
+        customerType = 'GYM_MEMBER';
+      }
+    }
+
     const customer = await this.prisma.customer.create({
       data: {
         tenantId,
@@ -268,11 +308,13 @@ export class WhatsAppService {
         phone: data.phone,
         email: data.email,
         status: data.status || 'ACTIVE',
-        customerType: data.customerType || 'GENERAL',
-        membershipPlan: data.membershipPlan,
-        pendingAmount: data.pendingAmount ? Number(data.pendingAmount) : 0,
+        customerType,
+        membershipPlan: data.batchName || data.membershipPlan || 'General Batch',
+        pendingAmount,
+        joinedAt: data.joinedAt ? new Date(data.joinedAt) : new Date(),
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         notes: data.notes,
+        metadata,
       },
     });
 
@@ -306,6 +348,158 @@ export class WhatsAppService {
     }
 
     return customer;
+  }
+
+  /**
+   * 6b. Get Customer 360 profile with fee history and logs
+   */
+  async getCustomer(tenantId: string, id: string) {
+    const customer = await this.prisma.customer.findFirst({
+      where: { id, tenantId },
+      include: {
+        whatsAppLogs: {
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException(`Customer / Student with ID '${id}' not found`);
+    }
+
+    // Attendance logs if any
+    const attendanceLogs = await this.prisma.attendanceLog.findMany({
+      where: {
+        tenantId,
+        OR: [
+          ...(customer.phone ? [{ phone: customer.phone }] : []),
+          { name: { contains: customer.firstName, mode: 'insensitive' as any } },
+        ],
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      customer,
+      attendanceLogs,
+    };
+  }
+
+  /**
+   * 6c. Update Customer / Student details
+   */
+  async updateCustomer(tenantId: string, id: string, data: any) {
+    const existing = await this.prisma.customer.findFirst({
+      where: { id, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Customer / Student '${id}' not found`);
+    }
+
+    const currentMeta = (existing.metadata as any) || {};
+    const totalFee = data.totalFee !== undefined
+      ? Number(data.totalFee)
+      : (data.metadata?.totalFee !== undefined ? Number(data.metadata.totalFee) : (currentMeta.totalFee ?? 0));
+
+    const feePaid = data.feePaid !== undefined
+      ? Number(data.feePaid)
+      : (data.metadata?.feePaid !== undefined ? Number(data.metadata.feePaid) : (currentMeta.feePaid ?? 0));
+
+    const pendingAmount = data.pendingAmount !== undefined
+      ? Number(data.pendingAmount)
+      : (totalFee > 0 ? Math.max(0, totalFee - feePaid) : Number(existing.pendingAmount));
+
+    const updatedMetadata = {
+      ...currentMeta,
+      ...(data.metadata || {}),
+      batchName: data.batchName ?? data.membershipPlan ?? currentMeta.batchName,
+      batchTiming: data.batchTiming ?? currentMeta.batchTiming,
+      rollNo: data.rollNo ?? currentMeta.rollNo,
+      parentName: data.parentName ?? currentMeta.parentName,
+      parentPhone: data.parentPhone ?? currentMeta.parentPhone,
+      totalFee,
+      feePaid,
+    };
+
+    const updated = await this.prisma.customer.update({
+      where: { id },
+      data: {
+        firstName: data.firstName ?? existing.firstName,
+        lastName: data.lastName !== undefined ? data.lastName : existing.lastName,
+        phone: data.phone ?? existing.phone,
+        email: data.email !== undefined ? data.email : existing.email,
+        status: data.status ?? existing.status,
+        membershipPlan: data.batchName ?? data.membershipPlan ?? existing.membershipPlan,
+        pendingAmount,
+        joinedAt: data.joinedAt ? new Date(data.joinedAt) : existing.joinedAt,
+        expiryDate: data.expiryDate !== undefined ? (data.expiryDate ? new Date(data.expiryDate) : null) : existing.expiryDate,
+        notes: data.notes !== undefined ? data.notes : existing.notes,
+        metadata: updatedMetadata,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * 6d. Record Fee Payment / Installment
+   */
+  async recordFeePayment(
+    tenantId: string,
+    id: string,
+    paymentDto: { amount: number; mode?: string; note?: string; receiptNo?: string },
+  ) {
+    const existing = await this.prisma.customer.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new NotFoundException('Customer / Student not found');
+
+    const amount = Number(paymentDto.amount);
+    const currentMeta = (existing.metadata as any) || {};
+    const currentPaid = Number(currentMeta.feePaid || 0);
+    const currentTotal = Number(currentMeta.totalFee || (Number(existing.pendingAmount) + currentPaid));
+    const newPaid = currentPaid + amount;
+    const newPending = Math.max(0, Number(existing.pendingAmount) - amount);
+
+    const newPayment = {
+      id: `pay-${Date.now()}`,
+      amount,
+      date: new Date().toISOString(),
+      mode: paymentDto.mode || 'CASH',
+      receiptNo: paymentDto.receiptNo || `REC-${Date.now().toString().slice(-6)}`,
+      note: paymentDto.note || 'Fee Installment Payment',
+    };
+
+    const installments = [...(currentMeta.feeInstallments || []), newPayment];
+
+    const updated = await this.prisma.customer.update({
+      where: { id },
+      data: {
+        pendingAmount: newPending,
+        metadata: {
+          ...currentMeta,
+          totalFee: currentTotal,
+          feePaid: newPaid,
+          feeInstallments: installments,
+        },
+      },
+    });
+
+    return {
+      success: true,
+      payment: newPayment,
+      customer: updated,
+    };
+  }
+
+  /**
+   * 6e. Delete Customer / Student record
+   */
+  async deleteCustomer(tenantId: string, id: string) {
+    const existing = await this.prisma.customer.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new NotFoundException('Customer / Student not found');
+    await this.prisma.customer.delete({ where: { id } });
+    return { success: true, message: 'Record deleted successfully' };
   }
 
   /**

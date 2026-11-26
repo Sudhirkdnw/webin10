@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { BusinessShell } from '@/components/business-shell';
 import {
   BookOpen,
@@ -183,7 +184,7 @@ export default function BatchesCoursesPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="text-xs font-semibold text-slate-800">
                       {b.enrolled} / {b.capacity} Students
@@ -195,6 +196,14 @@ export default function BatchesCoursesPage() {
                       />
                     </div>
                   </div>
+
+                  <Link
+                    href="/customers"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>View Students</span>
+                  </Link>
                 </div>
               </div>
             ))}

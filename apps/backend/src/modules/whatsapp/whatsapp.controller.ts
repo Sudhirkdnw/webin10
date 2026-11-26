@@ -3,6 +3,8 @@ import {
   Get,
   Post,
   Put,
+  Patch,
+  Delete,
   Query,
   Param,
   Body,
@@ -124,6 +126,44 @@ export class WhatsAppController {
     @Body() data: any,
   ) {
     return this.whatsAppService.createCustomer(tenantId, data);
+  }
+
+  @Get('customers/:tenantId/:id')
+  @ApiOperation({ summary: 'Get Customer / Student details with fee history and logs' })
+  async getCustomer(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.whatsAppService.getCustomer(tenantId, id);
+  }
+
+  @Patch('customers/:tenantId/:id')
+  @ApiOperation({ summary: 'Update Customer / Student details' })
+  async updateCustomer(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() data: any,
+  ) {
+    return this.whatsAppService.updateCustomer(tenantId, id, data);
+  }
+
+  @Post('customers/:tenantId/:id/fee-payment')
+  @ApiOperation({ summary: 'Record a fee installment payment for student / customer' })
+  async recordFeePayment(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() paymentDto: any,
+  ) {
+    return this.whatsAppService.recordFeePayment(tenantId, id, paymentDto);
+  }
+
+  @Delete('customers/:tenantId/:id')
+  @ApiOperation({ summary: 'Delete a customer / student record' })
+  async deleteCustomer(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.whatsAppService.deleteCustomer(tenantId, id);
   }
 
   @Get('campaigns/:tenantId')
