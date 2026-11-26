@@ -294,5 +294,14 @@ export class TenantSelfServiceController {
   ) {
     return this.selfService.createInventoryItem(tenantId, dto);
   }
+
+  // ==========================================
+  // ONBOARDING WIZARD: STARTER DATA SEEDER
+  // ==========================================
+  @Post('onboarding/seed-starter')
+  @ApiOperation({ summary: 'Populate initial category starter data for onboarding' })
+  async seedStarterData(@Param('tenantId') tenantId: string) {
+    return this.selfService.seedStarterData(tenantId);
+  }
 }
 

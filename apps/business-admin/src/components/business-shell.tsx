@@ -182,6 +182,12 @@ export function BusinessShell({ children }: BusinessShellProps) {
       icon: Boxes,
       badge: 'Apps',
     },
+    {
+      name: 'Setup Wizard 🪄',
+      href: '/onboarding',
+      icon: Sparkles,
+      badge: 'Standee',
+    },
     { name: 'Business Settings', href: '/settings', icon: Settings },
   ];
 

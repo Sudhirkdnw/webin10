@@ -132,6 +132,14 @@ export default function BusinessDashboard() {
               </Link>
 
               <Link
+                href="/onboarding"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-900/90 hover:bg-emerald-950 text-white border border-emerald-400/40 transition-all shadow-sm"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Setup Wizard & Standee 🪄</span>
+              </Link>
+
+              <Link
                 href="/customers"
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-800/80 hover:bg-emerald-800 text-white border border-emerald-600/50 transition-all"
               >

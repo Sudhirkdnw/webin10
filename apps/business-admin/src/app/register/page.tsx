@@ -317,9 +317,9 @@ export default function BusinessRegisterPage() {
 
         setStep(3);
 
-        // Redirect to dashboard after 2.5 seconds
+        // Redirect to onboarding wizard after 2.5 seconds
         setTimeout(() => {
-          router.push('/dashboard');
+          router.push('/onboarding');
         }, 2500);
       } else {
         setErrorMsg(payload.message || json.message || json.error?.message || 'Incorrect verification code. Please check and try again.');
@@ -765,7 +765,7 @@ export default function BusinessRegisterPage() {
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 max-w-sm mx-auto text-xs text-slate-500">
-              <span>Redirecting you to your business dashboard...</span>
+              <span>Redirecting you to 3-step setup wizard...</span>
               <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mt-3">
                 <div className="bg-emerald-600 h-full w-full animate-pulse" />
               </div>
@@ -773,10 +773,10 @@ export default function BusinessRegisterPage() {
 
             <div>
               <Link
-                href="/dashboard"
+                href="/onboarding"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-sm transition-all shadow-md shadow-emerald-600/20"
               >
-                <span>Go to Dashboard Now</span>
+                <span>Launch 3-Step Setup Wizard 🪄</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
-import { TenantRole, InvoiceStatus } from '@prisma/client';
+import { TenantRole, InvoiceStatus, CustomerStatus, CustomerType } from '@prisma/client';
 
 @Injectable()
 export class TenantSelfService {
@@ -1037,6 +1037,309 @@ export class TenantSelfService {
       },
     });
     return { success: true, data: item };
+  }
+
+  async seedStarterData(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { category: true, profile: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const catSlug = tenant.category?.slug || 'gym';
+
+    const seededStats = {
+      customers: 0,
+      attendance: 0,
+      khata: 0,
+      appointments: 0,
+      inventory: 0,
+    };
+
+    if (catSlug === 'gym') {
+      await this.prisma.customer.createMany({
+        data: [
+          {
+            tenantId,
+            firstName: 'Vikram',
+            lastName: 'Malhotra',
+            phone: '9820112233',
+            customerType: CustomerType.GYM_MEMBER,
+            membershipPlan: 'Gold 12-Month Plan',
+            status: CustomerStatus.ACTIVE,
+          },
+          {
+            tenantId,
+            firstName: 'Neha',
+            lastName: 'Sharma',
+            phone: '9876543210',
+            customerType: CustomerType.GYM_MEMBER,
+            membershipPlan: 'Strength & Cardio Monthly',
+            status: CustomerStatus.ACTIVE,
+          },
+          {
+            tenantId,
+            firstName: 'Aman',
+            lastName: 'Verma',
+            phone: '9812345678',
+            customerType: CustomerType.GYM_MEMBER,
+            membershipPlan: 'Personal Trainer VIP',
+            status: CustomerStatus.ACTIVE,
+          },
+        ],
+      });
+      seededStats.customers = 3;
+
+      await this.prisma.attendanceLog.createMany({
+        data: [
+          {
+            tenantId,
+            name: 'Vikram Malhotra',
+            role: 'Gold Member',
+            phone: '9820112233',
+            checkInTime: '06:30 AM',
+            date: todayStr,
+            method: 'QR_KIOSK',
+            status: 'PRESENT',
+            whatsappSent: true,
+          },
+          {
+            tenantId,
+            name: 'Neha Sharma',
+            role: 'Member',
+            phone: '9876543210',
+            checkInTime: '07:15 AM',
+            date: todayStr,
+            method: 'QR_KIOSK',
+            status: 'PRESENT',
+            whatsappSent: true,
+          },
+        ],
+      });
+      seededStats.attendance = 2;
+
+      await this.prisma.khataEntry.create({
+        data: {
+          tenantId,
+          customerName: 'Aman Verma',
+          phone: '9812345678',
+          amount: 2500,
+          balanceDue: 2500,
+          type: 'CREDIT',
+          status: 'PENDING',
+          notes: 'Personal Trainer Session (10 Packs)',
+          dueDate: todayStr,
+        },
+      });
+      seededStats.khata = 1;
+    } else if (catSlug === 'salon') {
+      await this.prisma.customer.createMany({
+        data: [
+          {
+            tenantId,
+            firstName: 'Pooja',
+            lastName: 'Verma',
+            phone: '9811223344',
+            customerType: CustomerType.GENERAL,
+            status: CustomerStatus.ACTIVE,
+          },
+          {
+            tenantId,
+            firstName: 'Rohan',
+            lastName: 'Kapoor',
+            phone: '9876501234',
+            customerType: CustomerType.GENERAL,
+            status: CustomerStatus.ACTIVE,
+          },
+        ],
+      });
+      seededStats.customers = 2;
+
+      await this.prisma.appointment.createMany({
+        data: [
+          {
+            tenantId,
+            clientName: 'Pooja Verma',
+            phone: '9811223344',
+            service: 'Bridal Glow Facial & Spa',
+            stylist: 'Senior Stylist Priya',
+            timeSlot: '03:00 PM - 04:30 PM',
+            slotDate: todayStr,
+            amount: '₹2,500',
+            status: 'CONFIRMED',
+          },
+          {
+            tenantId,
+            clientName: 'Rohan Kapoor',
+            phone: '9876501234',
+            service: 'Beard Trim & Hair Spa',
+            stylist: 'Stylist Sameer',
+            timeSlot: '05:30 PM - 06:15 PM',
+            slotDate: todayStr,
+            amount: '₹850',
+            status: 'CONFIRMED',
+          },
+        ],
+      });
+      seededStats.appointments = 2;
+    } else if (catSlug === 'coaching' || catSlug === 'dance-academy') {
+      await this.prisma.customer.createMany({
+        data: [
+          {
+            tenantId,
+            firstName: 'Aarav',
+            lastName: 'Gupta',
+            phone: '9822334455',
+            customerType: CustomerType.COACHING_STUDENT,
+            membershipPlan: 'Class 10 CBSE Morning Batch',
+            status: CustomerStatus.ACTIVE,
+          },
+          {
+            tenantId,
+            firstName: 'Sneha',
+            lastName: 'Patil',
+            phone: '9833445566',
+            customerType: CustomerType.COACHING_STUDENT,
+            membershipPlan: 'Class 12 Physics Crash Course',
+            status: CustomerStatus.ACTIVE,
+          },
+        ],
+      });
+      seededStats.customers = 2;
+
+      await this.prisma.attendanceLog.create({
+        data: {
+          tenantId,
+          name: 'Aarav Gupta',
+          role: 'Student',
+          phone: '9822334455',
+          checkInTime: '08:00 AM',
+          date: todayStr,
+          method: 'QR_KIOSK',
+          status: 'PRESENT',
+          whatsappSent: true,
+        },
+      });
+      seededStats.attendance = 1;
+
+      await this.prisma.khataEntry.create({
+        data: {
+          tenantId,
+          customerName: 'Sneha Patil',
+          phone: '9833445566',
+          amount: 4500,
+          balanceDue: 4500,
+          type: 'CREDIT',
+          status: 'PENDING',
+          notes: 'Term 2 Study Material & Batch Fee',
+          dueDate: todayStr,
+        },
+      });
+      seededStats.khata = 1;
+    } else if (catSlug === 'pharmacy') {
+      await this.prisma.inventoryItem.createMany({
+        data: [
+          {
+            tenantId,
+            name: 'Paracetamol 650mg Dolo Strip',
+            category: 'Fever & Pain',
+            sku: 'MED-DOLO-650',
+            stock: 150,
+            minStock: 20,
+            unitPrice: '₹34',
+            status: 'IN_STOCK',
+          },
+          {
+            tenantId,
+            name: 'Azithromycin 500mg Strip (3s)',
+            category: 'Antibiotics',
+            sku: 'MED-AZI-500',
+            stock: 45,
+            minStock: 15,
+            unitPrice: '₹120',
+            status: 'IN_STOCK',
+          },
+          {
+            tenantId,
+            name: 'Digital Infrared Thermometer',
+            category: 'Diagnostics',
+            sku: 'DEV-THRM-01',
+            stock: 8,
+            minStock: 10,
+            unitPrice: '₹850',
+            status: 'LOW_STOCK',
+          },
+        ],
+      });
+      seededStats.inventory = 3;
+
+      await this.prisma.khataEntry.create({
+        data: {
+          tenantId,
+          customerName: 'Rajesh Khanna (Patient #104)',
+          phone: '9844556677',
+          amount: 1420,
+          balanceDue: 1420,
+          type: 'CREDIT',
+          status: 'PENDING',
+          notes: 'Monthly Blood Pressure & Cardio Prescription',
+          dueDate: todayStr,
+        },
+      });
+      seededStats.khata = 1;
+    } else {
+      await this.prisma.inventoryItem.createMany({
+        data: [
+          {
+            tenantId,
+            name: 'Fortune Sunlite Refined Oil 1L',
+            category: 'Edible Oils',
+            sku: 'GRO-OIL-01',
+            stock: 60,
+            minStock: 15,
+            unitPrice: '₹140',
+            status: 'IN_STOCK',
+          },
+          {
+            tenantId,
+            name: 'Aashirvaad Shudh Chakki Atta 10kg',
+            category: 'Staples',
+            sku: 'GRO-ATT-10',
+            stock: 25,
+            minStock: 10,
+            unitPrice: '₹420',
+            status: 'IN_STOCK',
+          },
+        ],
+      });
+      seededStats.inventory = 2;
+
+      await this.prisma.khataEntry.create({
+        data: {
+          tenantId,
+          customerName: 'Suresh Agarwal (Khata #12)',
+          phone: '9877889900',
+          amount: 2850,
+          balanceDue: 2850,
+          type: 'CREDIT',
+          status: 'PENDING',
+          notes: 'Monthly Grocery Credit Ledger',
+          dueDate: todayStr,
+        },
+      });
+      seededStats.khata = 1;
+    }
+
+    return {
+      success: true,
+      category: catSlug,
+      seededStats,
+      message: `Starter pack populated successfully for ${tenant.name} (${catSlug})!`,
+    };
   }
 }
 
