@@ -417,6 +417,45 @@ export class BillingService {
     // A. RAZORPAY WEBHOOK HANDLER
     if (prov === 'razorpay') {
       const event = payload?.event;
+      this.logger.log(`Processing Razorpay webhook event: ${event}`);
+
+      // 1. Fetch Razorpay Integration Webhook Secret
+      const rzpIntegration = await this.prisma.platformIntegration.findUnique({
+        where: { provider: 'RAZORPAY' as any },
+      });
+      const webhookSecret =
+        (rzpIntegration?.credentials as any)?.webhookSecret ||
+        process.env.RAZORPAY_WEBHOOK_SECRET;
+
+      // 2. Cryptographic Signature Verification (HMAC-SHA256)
+      if (signature && webhookSecret) {
+        try {
+          const rawBody = typeof payload === 'string' ? payload : JSON.stringify(payload);
+          const expectedSig = crypto
+            .createHmac('sha256', webhookSecret)
+            .update(rawBody)
+            .digest('hex');
+
+          const isMatch =
+            signature === expectedSig ||
+            (signature.length === expectedSig.length &&
+              crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig)));
+
+          if (!isMatch) {
+            this.logger.warn(`Razorpay Webhook Signature Mismatch! Expected: ${expectedSig.slice(0, 8)}... Received: ${signature.slice(0, 8)}...`);
+            // Only reject if not in test simulator mode
+            if (!rzpIntegration?.isTestMode) {
+              return { received: false, error: 'Invalid Razorpay webhook signature' };
+            }
+          } else {
+            this.logger.log(`Razorpay Webhook Signature Verified Successfully via HMAC-SHA256.`);
+          }
+        } catch (sigErr: any) {
+          this.logger.error(`Error verifying Razorpay signature: ${sigErr.message}`);
+        }
+      }
+
+      // 3. Process Events
       if (event === 'payment.captured' || event === 'order.paid') {
         const payment = payload?.payload?.payment?.entity || payload?.payload?.order?.entity;
         const tenantId = payment?.notes?.tenant_id || payment?.notes?.tenantId;
@@ -426,7 +465,16 @@ export class BillingService {
 
         if (tenantId) {
           await this.processSuccessfulPayment(tenantId, amountRupees, 'RAZORPAY', paymentId);
+          this.logger.log(`Razorpay Payment Captured for tenant ${tenantId}: ₹${amountRupees} (ID: ${paymentId})`);
         }
+      } else if (event === 'payment.failed') {
+        const payment = payload?.payload?.payment?.entity;
+        const tenantId = payment?.notes?.tenant_id || payment?.notes?.tenantId;
+        this.logger.warn(
+          `Razorpay Payment Failed for tenant ${tenantId || 'Unknown'}: Reason: ${
+            payment?.error_description || 'Unknown error'
+          } (ID: ${payment?.id})`,
+        );
       }
     }
 
