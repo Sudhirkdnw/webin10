@@ -1,435 +1,879 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { AdminShell } from '@/components/admin-shell';
+import { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '@/lib/api';
 import {
-  Boxes,
+  Layers,
+  Power,
+  ShieldCheck,
+  AlertTriangle,
+  RotateCcw,
   CheckCircle2,
   XCircle,
+  HelpCircle,
   Search,
-  SlidersHorizontal,
-  Loader2,
-  AlertCircle,
-  ShieldAlert,
-  Power,
-  RefreshCw,
-  Edit2,
+  Filter,
+  Save,
+  Lock,
+  Sliders,
   Sparkles,
-  Link2,
+  Building2,
+  Info
 } from 'lucide-react';
 
+interface PlatformModule {
+  id: string;
+  name: string;
+  key: string;
+  description: string | null;
+  isActive: boolean;
+  version: string;
+  category: string;
+  dependencies: string[];
+}
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+}
+
+interface CategoryMatrixItem {
+  moduleId: string;
+  moduleKey: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  dependencies: string[];
+  isAvailable: boolean;
+  isDefault: boolean;
+  isMandatory: boolean;
+}
+
 export default function ModulesPage() {
-  const [modules, setModules] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'matrix' | 'global'>('matrix');
+
+  // Global Kill-Switch State
+  const [modules, setModules] = useState<PlatformModule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [filter, setFilter] = useState<string>('all');
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [impactModal, setImpactModal] = useState<{
+    module: PlatformModule;
+    affectedTenantsCount: number;
+    targetStatus: boolean;
+  } | null>(null);
 
-  // Edit Modal State
-  const [editModule, setEditModule] = useState<any | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editDescription, setEditDescription] = useState('');
-  const [savingEdit, setSavingEdit] = useState(false);
+  // Category Matrix State
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [matrixData, setMatrixData] = useState<CategoryMatrixItem[]>([]);
+  const [matrixLoading, setMatrixLoading] = useState(false);
+  const [savingMatrix, setSavingMatrix] = useState(false);
+  const [matrixSearch, setMatrixSearch] = useState('');
+  const [matrixFilter, setMatrixFilter] = useState<'all' | 'mandatory' | 'default' | 'available' | 'unavailable'>('all');
+  const [dirty, setDirty] = useState(false);
 
-  const loadModules = async () => {
-    setLoading(true);
-    const res = await apiRequest('/super-admin/modules');
-    if (res.success) {
-      setModules(res.data || []);
-    }
-    setLoading(false);
-  };
+  // Common UI State
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Fetch initial data
   useEffect(() => {
-    loadModules();
+    fetchGlobalModules();
+    fetchCategories();
   }, []);
 
-  const handleToggleActive = async (m: any) => {
-    setTogglingId(m.id);
-    setStatusMsg(null);
-    const nextStatus = !m.isActive;
+  // Fetch matrix whenever selected category changes
+  useEffect(() => {
+    if (selectedCategoryId) {
+      fetchCategoryMatrix(selectedCategoryId);
+    }
+  }, [selectedCategoryId]);
 
+  const fetchGlobalModules = async () => {
     try {
-      const res = await apiRequest(`/super-admin/modules/${m.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isActive: nextStatus }),
-      });
-
+      setLoading(true);
+      const res = await apiRequest<PlatformModule[]>('/super-admin/modules');
       if (res.success) {
-        setModules((prev) =>
-          prev.map((item) => (item.id === m.id ? { ...item, isActive: nextStatus } : item)),
-        );
-        setStatusMsg({
-          type: 'success',
-          text: `Module "${m.name}" is now ${nextStatus ? 'ACTIVE globally' : 'DISABLED platform-wide'}.`,
-        });
+        setModules(res.data || []);
       } else {
-        setStatusMsg({
-          type: 'error',
-          text: res.error || `Failed to update status for ${m.name}`,
-        });
+        setErrorMsg(res.error || 'Failed to load global modules');
       }
     } catch (err: any) {
-      setStatusMsg({
-        type: 'error',
-        text: err.message || 'Error communicating with server',
-      });
+      console.error(err);
+      setErrorMsg('Failed to load global modules');
     } finally {
-      setTogglingId(null);
+      setLoading(false);
     }
   };
 
-  const openEditModal = (m: any) => {
-    setEditModule(m);
-    setEditName(m.name);
-    setEditDescription(m.description || '');
+  const fetchCategories = async () => {
+    try {
+      const res = await apiRequest<Category[]>('/super-admin/categories');
+      if (res.success) {
+        const cats = res.data || [];
+        setCategories(cats);
+        if (cats.length > 0 && !selectedCategoryId) {
+          setSelectedCategoryId(cats[0].id);
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+    }
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editModule) return;
-    setSavingEdit(true);
-
+  const fetchCategoryMatrix = async (categoryId: string) => {
     try {
-      const res = await apiRequest(`/super-admin/modules/${editModule.id}`, {
-        method: 'PATCH',
+      setMatrixLoading(true);
+      setDirty(false);
+      const res = await apiRequest<{ category: Category; matrix: CategoryMatrixItem[] }>(
+        `/super-admin/categories/${categoryId}/matrix`
+      );
+      if (res.success && res.data) {
+        setMatrixData(res.data.matrix || []);
+      } else {
+        setErrorMsg(res.error || 'Failed to load matrix for selected category');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg('Network error loading matrix');
+    } finally {
+      setMatrixLoading(false);
+    }
+  };
+
+  // Matrix manipulation handlers
+  const handleToggleAvailable = (moduleKey: string) => {
+    setMatrixData(prev =>
+      prev.map(item => {
+        if (item.moduleKey === moduleKey) {
+          const nextAvailable = !item.isAvailable;
+          return {
+            ...item,
+            isAvailable: nextAvailable,
+            // If turning unavailable, must also turn off default & mandatory
+            isDefault: nextAvailable ? item.isDefault : false,
+            isMandatory: nextAvailable ? item.isMandatory : false,
+          };
+        }
+        return item;
+      })
+    );
+    setDirty(true);
+  };
+
+  const handleToggleDefault = (moduleKey: string) => {
+    setMatrixData(prev =>
+      prev.map(item => {
+        if (item.moduleKey === moduleKey) {
+          const nextDefault = !item.isDefault;
+          return {
+            ...item,
+            isDefault: nextDefault,
+            // If making default, must be available
+            isAvailable: nextDefault ? true : item.isAvailable,
+            // If unchecking default while mandatory was true, mandatory must also uncheck
+            isMandatory: nextDefault ? item.isMandatory : false,
+          };
+        }
+        return item;
+      })
+    );
+    setDirty(true);
+  };
+
+  const handleToggleMandatory = (moduleKey: string) => {
+    setMatrixData(prev =>
+      prev.map(item => {
+        if (item.moduleKey === moduleKey) {
+          const nextMandatory = !item.isMandatory;
+          return {
+            ...item,
+            isMandatory: nextMandatory,
+            // If making mandatory, it MUST be available and default
+            isAvailable: nextMandatory ? true : item.isAvailable,
+            isDefault: nextMandatory ? true : item.isDefault,
+          };
+        }
+        return item;
+      })
+    );
+    setDirty(true);
+  };
+
+  const handleSaveMatrix = async () => {
+    if (!selectedCategoryId) return;
+    try {
+      setSavingMatrix(true);
+      setErrorMsg(null);
+      const res = await apiRequest(`/super-admin/categories/${selectedCategoryId}/matrix`, {
+        method: 'PUT',
         body: JSON.stringify({
-          name: editName.trim(),
-          description: editDescription.trim(),
+          configs: matrixData.map(m => ({
+            moduleId: m.moduleId,
+            moduleKey: m.moduleKey,
+            isAvailable: m.isAvailable,
+            isDefault: m.isDefault,
+            isMandatory: m.isMandatory,
+          })),
         }),
       });
 
       if (res.success) {
-        setModules((prev) =>
-          prev.map((item) =>
-            item.id === editModule.id
-              ? { ...item, name: editName.trim(), description: editDescription.trim() }
-              : item,
-          ),
-        );
-        setStatusMsg({
-          type: 'success',
-          text: `Module details updated for "${editName}".`,
-        });
-        setEditModule(null);
+        setDirty(false);
+        const selCatName = categories.find(c => c.id === selectedCategoryId)?.name || 'Category';
+        setActionSuccess(`Category rules for "${selCatName}" saved successfully!`);
+        setTimeout(() => setActionSuccess(null), 4000);
       } else {
-        alert(res.error || 'Failed to save module edits');
+        setErrorMsg(res.error || 'Failed to save category matrix');
       }
-    } catch (e: any) {
-      alert(`Error: ${e.message}`);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Network error saving category matrix');
     } finally {
-      setSavingEdit(false);
+      setSavingMatrix(false);
     }
   };
 
-  const activeCount = modules.filter((m) => m.isActive).length;
-  const inactiveCount = modules.filter((m) => !m.isActive).length;
+  // Global Kill-Switch Handlers
+  const handleToggleGlobalModule = async (mod: PlatformModule) => {
+    try {
+      setTogglingId(mod.id);
+      setErrorMsg(null);
 
-  const filteredModules = modules.filter((m) => {
-    const matchesSearch =
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.key.toLowerCase().includes(search.toLowerCase()) ||
-      (m.description || '').toLowerCase().includes(search.toLowerCase());
+      if (mod.isActive) {
+        const res = await apiRequest<{ activeTenantsCount: number }>(`/super-admin/modules/${mod.id}/impact`);
+        setImpactModal({
+          module: mod,
+          affectedTenantsCount: res.data?.activeTenantsCount || 0,
+          targetStatus: false,
+        });
+        setTogglingId(null);
+        return;
+      }
 
-    const matchesStatus =
-      filterStatus === 'ALL'
-        ? true
-        : filterStatus === 'ACTIVE'
-        ? m.isActive
-        : !m.isActive;
+      await executeGlobalStatusChange(mod.id, true);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to initiate status change');
+      setTogglingId(null);
+    }
+  };
 
-    return matchesSearch && matchesStatus;
-  });
+  const executeGlobalStatusChange = async (moduleId: string, newStatus: boolean) => {
+    try {
+      const res = await apiRequest(`/super-admin/modules/${moduleId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to update module status');
+      }
+
+      setModules(prev =>
+        prev.map(m => (m.id === moduleId ? { ...m, isActive: newStatus } : m))
+      );
+      setActionSuccess(`Module ${newStatus ? 'Activated' : 'Force-Deactivated globally'}`);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setTogglingId(null);
+      setImpactModal(null);
+    }
+  };
+
+  // Filtered Matrix List
+  const filteredMatrix = useMemo(() => {
+    return matrixData.filter(item => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+        item.moduleKey.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(matrixSearch.toLowerCase()));
+
+      if (!matchesSearch) return false;
+
+      if (matrixFilter === 'mandatory') return item.isMandatory;
+      if (matrixFilter === 'default') return item.isDefault && !item.isMandatory;
+      if (matrixFilter === 'available') return item.isAvailable;
+      if (matrixFilter === 'unavailable') return !item.isAvailable;
+      return true;
+    });
+  }, [matrixData, matrixSearch, matrixFilter]);
+
+  // Matrix Stats Counters
+  const matrixStats = useMemo(() => {
+    let mandatory = 0;
+    let defaultOnly = 0;
+    let optionalAvailable = 0;
+    let unavailable = 0;
+
+    matrixData.forEach(item => {
+      if (!item.isAvailable) {
+        unavailable++;
+      } else if (item.isMandatory) {
+        mandatory++;
+      } else if (item.isDefault) {
+        defaultOnly++;
+      } else {
+        optionalAvailable++;
+      }
+    });
+
+    return { mandatory, defaultOnly, optionalAvailable, unavailable, total: matrixData.length };
+  }, [matrixData]);
+
+  // Selected Category Info
+  const selectedCategory = categories.find(c => c.id === selectedCategoryId);
 
   return (
-    <AdminShell>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-indigo-600" />
-                Global Platform Control
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold">
-                Master 18-Module Engine
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform Functional Modules</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Super Admin master kill-switch: decide which business modules remain active globally or suspended across all tenants.
-            </p>
+    <div className="space-y-6">
+      {/* Header & Tabs */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-white">Platform Modules Control</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              Webin10 Engine
+            </span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={loadModules}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-xs"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-          </div>
+          <p className="text-sm text-slate-400 mt-1">
+            Configure vertical business category rules, defaults, and platform-wide emergency kill-switches.
+          </p>
         </div>
 
-        {/* Global Kill-Switch Notice */}
-        <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl flex items-start gap-3 text-xs sm:text-sm text-indigo-900 shadow-xs">
-          <ShieldAlert className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Super Admin Precedence Rule:</span> Turning OFF a module here immediately deactivates it platform-wide for all business tenants, overriding any individual business settings or category defaults.
-          </div>
-        </div>
-
-        {/* Status Toast */}
-        {statusMsg && (
-          <div
-            className={`p-4 rounded-2xl flex items-center gap-3 text-xs sm:text-sm font-medium shadow-sm transition-all ${
-              statusMsg.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl self-start md:self-auto">
+          <button
+            onClick={() => setActiveTab('matrix')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'matrix'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
-            {statusMsg.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-            )}
-            <span>{statusMsg.text}</span>
-          </div>
-        )}
-
-        {/* Stats & Filters Bar */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFilterStatus('ALL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                filterStatus === 'ALL'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              All Modules ({modules.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterStatus('ACTIVE')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                filterStatus === 'ACTIVE'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Active ({activeCount})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterStatus('INACTIVE')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                filterStatus === 'INACTIVE'
-                  ? 'bg-red-600 text-white shadow-xs'
-                  : 'bg-red-50 text-red-800 hover:bg-red-100'
-              }`}
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              <span>Disabled ({inactiveCount})</span>
-            </button>
-          </div>
-
-          <div className="relative w-full md:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by module name or key..."
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white transition-all font-medium"
-            />
-          </div>
+            <Sliders className="w-4 h-4" />
+            Category Matrix Editor
+          </button>
+          <button
+            onClick={() => setActiveTab('global')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'global'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Power className="w-4 h-4" />
+            Global Master Kill-Switch
+          </button>
         </div>
+      </div>
 
-        {/* Modules Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {loading ? (
-            <div className="col-span-3 py-16 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
-              <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
-              <span>Loading platform modules...</span>
-            </div>
-          ) : filteredModules.length === 0 ? (
-            <div className="col-span-3 py-16 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
-              No modules matched your search filter.
-            </div>
-          ) : (
-            filteredModules.map((m) => {
-              const isToggling = togglingId === m.id;
+      {/* Notifications */}
+      {actionSuccess && (
+        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm animate-in fade-in duration-200">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+          <span>{actionSuccess}</span>
+        </div>
+      )}
+      {errorMsg && (
+        <div className="flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm animate-in fade-in duration-200">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
-              return (
-                <div
-                  key={m.id}
-                  className={`bg-white rounded-2xl border transition-all p-5 shadow-xs flex flex-col justify-between ${
-                    m.isActive
-                      ? 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
-                      : 'border-red-200/80 bg-red-50/20'
+      {/* ========================================================================= */}
+      {/* TAB 1: CATEGORY MATRIX EDITOR */}
+      {/* ========================================================================= */}
+      {activeTab === 'matrix' && (
+        <div className="space-y-6">
+          {/* Vertical / Category Selector Bar */}
+          <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-indigo-400" />
+                <h2 className="text-base font-semibold text-white">Select Business Vertical / Category</h2>
+              </div>
+              {dirty && (
+                <div className="flex items-center gap-2 text-xs font-medium text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  Unsaved changes in this vertical
+                </div>
+              )}
+            </div>
+
+            {/* Category Pills */}
+            <div className="flex flex-wrap gap-2">
+              {categories.map(cat => {
+                const isSelected = cat.id === selectedCategoryId;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      if (dirty && !confirm('You have unsaved changes in this category. Discard and switch?')) {
+                        return;
+                      }
+                      setSelectedCategoryId(cat.id);
+                    }}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2.5 ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-600/25 ring-2 ring-indigo-400/40'
+                        : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/60'
+                    }`}
+                  >
+                    <span>{cat.name}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-black/25 font-mono text-slate-200">
+                      {cat.slug}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Vertical Stats Summary & Action Bar */}
+          {selectedCategory && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+              <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+                <div className="text-xs text-slate-400 font-medium">Mandatory (Locked)</div>
+                <div className="text-2xl font-bold text-rose-400 mt-1 flex items-center gap-1.5">
+                  <Lock className="w-4 h-4" />
+                  {matrixStats.mandatory}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Tenant cannot turn off</div>
+              </div>
+
+              <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+                <div className="text-xs text-slate-400 font-medium">Default Auto-ON</div>
+                <div className="text-2xl font-bold text-indigo-400 mt-1 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4" />
+                  {matrixStats.defaultOnly}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Pre-activated on register</div>
+              </div>
+
+              <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+                <div className="text-xs text-slate-400 font-medium">Optional Available</div>
+                <div className="text-2xl font-bold text-emerald-400 mt-1 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {matrixStats.optionalAvailable}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Self-serve in Store</div>
+              </div>
+
+              <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+                <div className="text-xs text-slate-400 font-medium">Excluded / Unavailable</div>
+                <div className="text-2xl font-bold text-slate-400 mt-1 flex items-center gap-1.5">
+                  <XCircle className="w-4 h-4" />
+                  {matrixStats.unavailable}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Hidden from this vertical</div>
+              </div>
+
+              <div className="col-span-2 sm:col-span-4 md:col-span-1 bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/20 p-4 rounded-xl flex flex-col justify-between">
+                <div>
+                  <div className="text-xs text-indigo-300 font-medium">Total Catalogue</div>
+                  <div className="text-2xl font-bold text-white mt-1">{matrixStats.total} Modules</div>
+                </div>
+                <button
+                  onClick={handleSaveMatrix}
+                  disabled={savingMatrix || !dirty}
+                  className={`mt-2 w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    dirty
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
+                      : 'bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-700/40'
                   }`}
                 >
-                  <div>
-                    {/* Top Row: Icon + Status Toggle Switch */}
-                    <div className="flex items-center justify-between mb-3.5">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
-                          m.isActive
-                            ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                            : 'bg-red-50 border-red-200 text-red-500'
-                        }`}
-                      >
-                        <Boxes className="w-5 h-5" />
-                      </div>
+                  <Save className="w-3.5 h-3.5" />
+                  {savingMatrix ? 'Saving...' : dirty ? 'Save Matrix Changes' : 'Saved'}
+                </button>
+              </div>
+            </div>
+          )}
 
-                      {/* Interactive On/Off Switch */}
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[11px] font-bold ${
-                            m.isActive ? 'text-emerald-700' : 'text-red-600'
+          {/* Search, Filter & Save Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search modules..."
+                value={matrixSearch}
+                onChange={e => setMatrixSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+              <span className="text-xs text-slate-400 font-medium">Filter:</span>
+              {(['all', 'mandatory', 'default', 'available', 'unavailable'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setMatrixFilter(tab)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
+                    matrixFilter === tab
+                      ? 'bg-indigo-600 text-white font-semibold'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleSaveMatrix}
+              disabled={savingMatrix || !dirty}
+              className={`w-full sm:w-auto px-5 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                dirty
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/40'
+                  : 'bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-700/50'
+              }`}
+            >
+              <Save className="w-4 h-4" />
+              {savingMatrix ? 'Saving Changes...' : 'Save Matrix Configuration'}
+            </button>
+          </div>
+
+          {/* Matrix Table */}
+          {matrixLoading ? (
+            <div className="h-64 flex flex-col items-center justify-center gap-3 bg-slate-900/30 rounded-2xl border border-slate-800">
+              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-slate-400">Loading category configuration...</p>
+            </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-950/70 border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      <th className="py-3.5 px-4">Master Module</th>
+                      <th className="py-3.5 px-4 text-center">Global State</th>
+                      <th className="py-3.5 px-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <span>Available in Category</span>
+                          <span className="text-[10px] text-slate-400 normal-case font-normal">Offered to tenant</span>
+                        </div>
+                      </th>
+                      <th className="py-3.5 px-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <span>Default Auto-ON</span>
+                          <span className="text-[10px] text-slate-400 normal-case font-normal">Enabled on signup</span>
+                        </div>
+                      </th>
+                      <th className="py-3.5 px-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className="text-rose-300">Mandatory Core [🔒]</span>
+                          <span className="text-[10px] text-slate-400 normal-case font-normal">Tenant cannot disable</span>
+                        </div>
+                      </th>
+                      <th className="py-3.5 px-4 text-right">Resulting Rule</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 text-sm">
+                    {filteredMatrix.map(m => {
+                      const isGloballyDisabled = !m.isActive;
+
+                      return (
+                        <tr
+                          key={m.moduleId}
+                          className={`hover:bg-slate-800/30 transition-colors ${
+                            !m.isAvailable ? 'opacity-60 bg-slate-950/20' : ''
                           }`}
                         >
-                          {m.isActive ? 'Active' : 'Disabled'}
-                        </span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={m.isActive}
-                          disabled={isToggling}
-                          onClick={() => handleToggleActive(m)}
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 ${
-                            m.isActive ? 'bg-emerald-600' : 'bg-slate-300'
-                          }`}
-                          title={`Click to turn ${m.isActive ? 'OFF' : 'ON'} module "${m.name}" globally`}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                              m.isActive ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
+                          {/* Module info */}
+                          <td className="py-3.5 px-4">
+                            <div className="font-semibold text-white flex items-center gap-2">
+                              {m.name}
+                              <code className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
+                                {m.moduleKey}
+                              </code>
+                            </div>
+                            {m.description && (
+                              <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{m.description}</p>
+                            )}
+                            {m.dependencies && m.dependencies.length > 0 && (
+                              <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                                <Info className="w-3 h-3 text-amber-400/80" />
+                                <span>Depends on: {m.dependencies.join(', ')}</span>
+                              </div>
+                            )}
+                          </td>
 
-                    {/* Module Title & Key */}
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-bold text-slate-900 text-sm">{m.name}</h3>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(m)}
-                        className="text-slate-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
-                        title="Edit Module Details"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                          {/* Global Kill-Switch status */}
+                          <td className="py-3.5 px-4 text-center">
+                            {m.isActive ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                                Kill-Switched
+                              </span>
+                            )}
+                          </td>
 
-                    <p className="text-[11px] font-mono text-indigo-600 font-semibold mb-2">
-                      {m.key}
-                    </p>
+                          {/* Available Toggle */}
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAvailable(m.moduleKey)}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                                m.isAvailable ? 'bg-emerald-600' : 'bg-slate-700'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  m.isAvailable ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </td>
 
-                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                      {m.description || 'Core platform business module'}
-                    </p>
+                          {/* Default Toggle */}
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              disabled={!m.isAvailable}
+                              onClick={() => handleToggleDefault(m.moduleKey)}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                                !m.isAvailable
+                                  ? 'bg-slate-800 opacity-40 cursor-not-allowed'
+                                  : m.isDefault
+                                  ? 'bg-indigo-600'
+                                  : 'bg-slate-700'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  m.isDefault ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </td>
 
-                    {/* Dependencies */}
-                    {m.dependencies && m.dependencies.length > 0 && (
-                      <div className="mt-3 flex items-center gap-1.5 text-[10px] text-slate-500 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-                        <Link2 className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span>Requires:</span>
-                        <span className="font-mono text-indigo-700 font-bold">
-                          {m.dependencies.join(', ')}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                          {/* Mandatory Toggle */}
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              disabled={!m.isAvailable}
+                              onClick={() => handleToggleMandatory(m.moduleKey)}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                                !m.isAvailable
+                                  ? 'bg-slate-800 opacity-40 cursor-not-allowed'
+                                  : m.isMandatory
+                                  ? 'bg-rose-600'
+                                  : 'bg-slate-700'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  m.isMandatory ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </td>
 
-                  {/* Bottom Stats */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                    <span className="flex items-center gap-1 font-medium">
-                      {m.isActive ? (
-                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Platform Operational
-                        </span>
-                      ) : (
-                        <span className="text-red-600 font-semibold flex items-center gap-1">
-                          <XCircle className="w-3.5 h-3.5 text-red-500" />
-                          Suspended Globally
-                        </span>
-                      )}
-                    </span>
-                    <span className="font-semibold text-slate-600">
-                      {m._count?.categoryModules ?? 0} Verticals
-                    </span>
-                  </div>
-                </div>
-              );
-            })
+                          {/* Resulting Rule Pill */}
+                          <td className="py-3.5 px-4 text-right">
+                            {isGloballyDisabled ? (
+                              <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                ⛔ Blocked (Platform Off)
+                              </span>
+                            ) : !m.isAvailable ? (
+                              <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                                Excluded from {selectedCategory?.name || 'Category'}
+                              </span>
+                            ) : m.isMandatory ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                                <Lock className="w-3 h-3 text-rose-400" />
+                                Mandatory Core
+                              </span>
+                            ) : m.isDefault ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                <Sparkles className="w-3 h-3 text-indigo-400" />
+                                Default Auto-ON
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                Optional Available
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
+      )}
 
-        {/* Edit Modal */}
-        {editModule && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-              <h2 className="text-lg font-bold text-slate-900">Edit Module Details</h2>
-              <p className="text-xs text-slate-500">
-                Update display name and description for key: <code className="font-mono text-indigo-600 font-bold">{editModule.key}</code>
+      {/* ========================================================================= */}
+      {/* TAB 2: GLOBAL MASTER KILL-SWITCH */}
+      {/* ========================================================================= */}
+      {activeTab === 'global' && (
+        <div className="space-y-6">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-sm text-amber-300 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-400 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-200">Global Master Kill-Switch Precedence Warning</p>
+              <p className="text-xs text-amber-400/90 mt-0.5">
+                Disabling a module here instantly disables it platform-wide across all tenants and categories.
+                Even if a module is marked "Mandatory" in a category, the global kill-switch overrides and deactivates it immediately.
               </p>
-
-              <form onSubmit={handleSaveEdit} className="space-y-4 pt-2">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Module Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
-                  <textarea
-                    rows={3}
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setEditModule(null)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingEdit}
-                    className="px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors shadow-xs disabled:opacity-50"
-                  >
-                    {savingEdit ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
-        )}
-      </div>
-    </AdminShell>
+
+          {/* Module Filter Tabs */}
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+            {(['all', 'core', 'industry', 'addon'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
+                  filter === tab
+                    ? 'bg-indigo-600 text-white font-semibold'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                {tab === 'all' ? 'All Master Modules (18)' : `${tab} Modules`}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="h-64 flex flex-col items-center justify-center gap-3 bg-slate-900/30 rounded-2xl border border-slate-800">
+              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-slate-400">Loading master modules catalogue...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {modules
+                .filter(m => (filter === 'all' ? true : m.category.toLowerCase() === filter))
+                .map(mod => {
+                  const isToggling = togglingId === mod.id;
+
+                  return (
+                    <div
+                      key={mod.id}
+                      className={`p-5 rounded-2xl border transition-all ${
+                        mod.isActive
+                          ? 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                          : 'bg-slate-950/60 border-rose-900/40 opacity-75'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-white">{mod.name}</h3>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
+                              v{mod.version}
+                            </span>
+                          </div>
+                          <p className="text-xs font-mono text-indigo-400">{mod.key}</p>
+                        </div>
+
+                        {/* Power Toggle Button */}
+                        <button
+                          onClick={() => handleToggleGlobalModule(mod)}
+                          disabled={isToggling}
+                          className={`p-2.5 rounded-xl transition-all ${
+                            mod.isActive
+                              ? 'bg-emerald-500/10 text-emerald-400 hover:bg-rose-500/10 hover:text-rose-400 border border-emerald-500/20'
+                              : 'bg-rose-500/10 text-rose-400 hover:bg-emerald-500/10 hover:text-emerald-400 border border-rose-500/20'
+                          }`}
+                          title={mod.isActive ? 'Turn Off Module' : 'Turn On Module'}
+                        >
+                          <Power className={`w-4 h-4 ${isToggling ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-slate-400 mt-3 line-clamp-2">
+                        {mod.description || 'Core business capability module for Webin10 multi-tenant OS.'}
+                      </p>
+
+                      <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="capitalize px-2 py-0.5 rounded-md bg-slate-800/80 font-medium text-slate-300">
+                          {mod.category}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              mod.isActive ? 'bg-emerald-400' : 'bg-rose-500'
+                            }`}
+                          />
+                          <span className={mod.isActive ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}>
+                            {mod.isActive ? 'Operational' : 'Disabled'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Global Impact Confirmation Modal */}
+      {impactModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Emergency Kill-Switch</h3>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              Are you sure you want to deactivate{' '}
+              <strong className="text-white">{impactModal.module.name}</strong> platform-wide?
+            </p>
+
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-400">
+                <span>Active Business Tenants Affected:</span>
+                <span className="font-semibold text-rose-400">
+                  {impactModal.affectedTenantsCount} tenants
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Tenant UI Impact:</span>
+                <span className="font-semibold text-slate-200">Hidden from sidebar & App Store</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Backend APIs:</span>
+                <span className="font-semibold text-slate-200">Returns 403 Module Disabled</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setImpactModal(null)}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => executeGlobalStatusChange(impactModal.module.id, false)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors shadow-lg shadow-rose-600/30"
+              >
+                Deactivate Platform-Wide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

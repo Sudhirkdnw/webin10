@@ -89,6 +89,40 @@ export class CategoriesController {
     return this.categoriesService.assignCategoryModules(id, dto, admin.id, ip);
   }
 
+  @Get(':id/matrix')
+  @RequirePlatformRoles(
+    PlatformRole.SUPER_ADMIN,
+    PlatformRole.PLATFORM_OWNER,
+    PlatformRole.PLATFORM_SUPPORT,
+    PlatformRole.PLATFORM_OPERATIONS,
+  )
+  @ApiOperation({ summary: 'Get full 18-module availability, default, and mandatory matrix for vertical' })
+  async getMatrix(@Param('id') id: string) {
+    return this.categoriesService.getCategoryMatrix(id);
+  }
+
+  @Put(':id/matrix')
+  @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
+  @ApiOperation({ summary: 'Update module matrix (Available, Default ON, Mandatory) for category' })
+  async updateMatrix(
+    @Param('id') id: string,
+    @Body()
+    dto: {
+      configs: Array<{
+        moduleId?: string;
+        moduleKey?: string;
+        isAvailable: boolean;
+        isDefault: boolean;
+        isMandatory: boolean;
+      }>;
+    },
+    @CurrentUser() admin: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+    return this.categoriesService.updateCategoryMatrix(id, dto.configs || [], admin.id, ip);
+  }
+
   @Delete(':id')
   @RequirePlatformRoles(PlatformRole.SUPER_ADMIN, PlatformRole.PLATFORM_OWNER)
   @ApiOperation({ summary: 'Delete a category if no businesses are associated with it' })

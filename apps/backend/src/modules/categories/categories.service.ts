@@ -210,4 +210,106 @@ export class CategoriesService {
 
     return { message: `Category '${category.name}' deleted successfully` };
   }
+
+  // ==========================================
+  // SUPER ADMIN CATEGORY-MODULE MATRIX
+  // ==========================================
+  async getCategoryMatrix(id: string) {
+    const category = await this.prisma.businessCategory.findUnique({
+      where: { id },
+      include: {
+        categoryModules: true,
+      },
+    });
+    if (!category) {
+      throw new NotFoundException(`Category '${id}' not found`);
+    }
+
+    const allModules = await this.prisma.platformModule.findMany({
+      orderBy: { name: 'asc' },
+    });
+
+    const matrix = allModules.map((m) => {
+      const match = category.categoryModules.find((cm) => cm.moduleId === m.id);
+      return {
+        moduleId: m.id,
+        moduleKey: m.key,
+        name: m.name,
+        description: m.description,
+        isActive: m.isActive,
+        dependencies: m.dependencies || [],
+        isAvailable: match ? match.isAvailable : false,
+        isDefault: match ? match.isDefault : false,
+        isMandatory: match ? match.isMandatory : false,
+      };
+    });
+
+    return {
+      category: {
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        description: category.description,
+        isActive: category.isActive,
+      },
+      matrix,
+    };
+  }
+
+  async updateCategoryMatrix(
+    id: string,
+    configs: Array<{
+      moduleId?: string;
+      moduleKey?: string;
+      isAvailable: boolean;
+      isDefault: boolean;
+      isMandatory: boolean;
+    }>,
+    adminId: string,
+    ip?: string,
+  ) {
+    const category = await this.prisma.businessCategory.findUnique({ where: { id } });
+    if (!category) {
+      throw new NotFoundException(`Category '${id}' not found`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.categoryModule.deleteMany({ where: { categoryId: id } });
+
+      for (const item of configs) {
+        let modId = item.moduleId;
+        if (!modId && item.moduleKey) {
+          const m = await tx.platformModule.findUnique({ where: { key: item.moduleKey } });
+          if (m) modId = m.id;
+        }
+        if (!modId) continue;
+
+        const isMandatory = item.isMandatory || false;
+        const isDefault = isMandatory ? true : (item.isDefault || false);
+        const isAvailable = isMandatory ? true : (item.isAvailable ?? true);
+
+        await tx.categoryModule.create({
+          data: {
+            categoryId: id,
+            moduleId: modId,
+            isMandatory,
+            isDefault,
+            isAvailable,
+          },
+        });
+      }
+    });
+
+    await this.auditService.log({
+      actorId: adminId,
+      actorType: 'PLATFORM_ADMIN',
+      action: 'category.update_matrix',
+      entity: 'category_modules',
+      entityId: id,
+      details: { categoryName: category.name, configuredCount: configs.length },
+      ipAddress: ip,
+    });
+
+    return this.getCategoryMatrix(id);
+  }
 }
