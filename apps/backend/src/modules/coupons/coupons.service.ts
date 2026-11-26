@@ -186,7 +186,11 @@ export class CouponsService {
    * Public or Checkout coupon validation engine
    */
   async validateCoupon(dto: ValidateCouponDto) {
-    const normalizedCode = dto.code.trim().toUpperCase();
+    const normalizedCode = dto.code ? dto.code.trim().toUpperCase() : '';
+    if (!normalizedCode) {
+      throw new BadRequestException('Coupon code is required');
+    }
+
     const coupon = await this.model.findUnique({
       where: { code: normalizedCode },
     });
@@ -212,7 +216,26 @@ export class CouponsService {
       throw new BadRequestException(`Coupon '${normalizedCode}' redemption limit has been reached`);
     }
 
-    const basePrice = dto.planPrice !== undefined ? Number(dto.planPrice) : 0;
+    // Check plan compatibility if restricted
+    if (dto.planSlug && Array.isArray(coupon.applicablePlans) && coupon.applicablePlans.length > 0) {
+      const isApplicable = coupon.applicablePlans.some(
+        (p: string) => p.toLowerCase() === dto.planSlug?.toLowerCase(),
+      );
+      if (!isApplicable) {
+        throw new BadRequestException(`Coupon '${normalizedCode}' is not applicable to the '${dto.planSlug}' plan`);
+      }
+    }
+
+    let basePrice = dto.planPrice !== undefined ? Number(dto.planPrice) : 0;
+    if (!basePrice && dto.planSlug) {
+      const plan = await this.prisma.subscriptionPlan.findUnique({
+        where: { slug: dto.planSlug },
+      });
+      if (plan) {
+        basePrice = plan.priceMonthly / 100;
+      }
+    }
+
     if (coupon.minPurchase && basePrice < coupon.minPurchase) {
       throw new BadRequestException(
         `Coupon requires a minimum purchase amount of ₹${coupon.minPurchase}`,
@@ -235,6 +258,7 @@ export class CouponsService {
     const finalPrice = Math.max(0, basePrice - discountAmount);
 
     return {
+      valid: true,
       isValid: true,
       couponId: coupon.id,
       code: coupon.code,

@@ -61,4 +61,8 @@ export class ValidateCouponDto {
   @IsString()
   @IsOptional()
   planId?: string;
+
+  @IsString()
+  @IsOptional()
+  planSlug?: string;
 }

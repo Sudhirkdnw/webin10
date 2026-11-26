@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Ip,
 } from '@nestjs/common';
@@ -101,6 +102,20 @@ export class CouponsController {
     @Ip() ip: string,
   ) {
     return this.couponsService.deleteCoupon(id, admin.id, ip);
+  }
+
+  @Get('public/coupons/validate')
+  @ApiOperation({ summary: 'Validate a coupon during checkout via GET query (Public)' })
+  async validateGet(
+    @Query('code') code: string,
+    @Query('planSlug') planSlug?: string,
+    @Query('planPrice') planPrice?: string,
+  ) {
+    return this.couponsService.validateCoupon({
+      code,
+      planSlug,
+      planPrice: planPrice ? Number(planPrice) : undefined,
+    });
   }
 
   @Post('public/coupons/validate')
